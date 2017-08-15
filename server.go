@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-func NewTCPListenser(addr string) (*TCPListener, error) {
+func NewTCPListener(addr string) (*TCPListener, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", addr)
 	if err != nil {
 		return nil, err

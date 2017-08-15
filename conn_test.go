@@ -53,7 +53,7 @@ func AddHeader(data []byte) string {
 func TestTCPConnInterface(t *testing.T) {
 	TCPChan := make(chan TCPConnInterface)
 
-	listener, err := NewTCPListenser(Addr)
+	listener, err := NewTCPListener(Addr)
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
@@ -127,7 +127,7 @@ Notice: Always use the original import path by installing with go get.`,
 func TestTCPConn(t *testing.T) {
 	TCPChan := make(chan *TCPConn)
 
-	listener, err := NewTCPListenser(Addr)
+	listener, err := NewTCPListener(Addr)
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
@@ -218,7 +218,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 
 	TCPChan := make(chan TCPCtrlInterface)
 
-	listener, err := NewTCPListenser(Addr)
+	listener, err := NewTCPListener(Addr)
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}

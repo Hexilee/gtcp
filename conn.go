@@ -42,38 +42,14 @@ type TCPConnInterface interface {
 	Done() <-chan struct{}
 	IsScanning() bool
 	IsClosed() bool
-	InstallNetConn(conn *net.TCPConn)
+	InstallNetConn(conn *net.TCPConn) (err error)
 	Clear()
 }
 
 type TCPBox interface {
 	TCPConnInterface
-	InstallTCPConn(conn *TCPConn) (err error)
-}
-
-type TCPCtrlInterface interface {
-	TCPBox
-	InstallActor(actor Actor)
-}
-
-type Actor interface {
-	TCPBox
-	OnConnect() error
-	OnMessage(data []byte) error
-	OnError(err error) error
-	OnClose() error
-}
-
-type ActorType struct {
-	*TCPConn
-}
-
-func (a *ActorType) InstallTCPConn(conn *TCPConn) (err error) {
-	if a.isScanning && !a.isClosed{
-		err = a.Close()
-	}
-	a.TCPConn = conn
-	return err
+	InstallTCPConn(conn *TCPConn)
+	ReInstallTCPConn(conn *TCPConn) (err error)
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -109,15 +85,12 @@ func (t *TCPConn) Clear() {
 	t.mu.Unlock()
 }
 
-func (t *TCPConn) InstallNetConn(conn *net.TCPConn) {
-	if t.isScanning{
-		select {
-		case <-t.Done():
-		default:
-			t.Close()
-		}
+func (t *TCPConn) InstallNetConn(conn *net.TCPConn) (err error) {
+	if t.IsScanning() && !t.IsClosed(){
+		err = t.Close()
 	}
 	t.TCPConn = conn
+	return err
 }
 
 func (t *TCPConn) IsScanning() bool {
@@ -253,57 +226,4 @@ func (t *TCPConn) GetInfoChan() <-chan string {
 
 func (t *TCPConn) GetErrChan() <-chan error {
 	return t.error
-}
-
-func NewTCPCtrl(actor Actor) *TCPCtrl {
-	return &TCPCtrl{actor}
-}
-
-type TCPCtrl struct {
-	Actor
-}
-
-func (t *TCPCtrl) Close() error {
-	select {
-	case <-t.Done():
-		return errors.New("TCPCtrl has already closed")
-	default:
-	}
-	t.OnClose()
-	err := t.Actor.Close()
-	return err
-}
-
-func (t *TCPCtrl) InstallActor(actor Actor) {
-	t.Actor = actor
-}
-
-func (t *TCPCtrl) Scan() {
-	defer t.Close()
-	err := t.OnConnect()
-	for err != nil {
-		err = t.OnError(err)
-	}
-
-	go t.Actor.Scan()
-
-	dataChan := t.GetDataChan()
-	errChan := t.GetErrChan()
-
-Circle:
-	for {
-		select {
-		case <-t.Done():
-			break Circle
-		case data := <-dataChan:
-			err := t.OnMessage(data)
-			for err != nil {
-				err = t.OnError(err)
-			}
-		case err := <-errChan:
-			for err != nil {
-				err = t.OnError(err)
-			}
-		}
-	}
 }
