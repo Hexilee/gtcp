@@ -1,17 +1,18 @@
 package gtcp
 
 import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
 	"net"
 	"os"
-	"io"
-	"time"
+	"sync"
 	"syscall"
-	"encoding/binary"
-	"context"
-	"errors"
-	"bytes"
-	"fmt"
-	"bufio"
+	"time"
 )
 
 const (
@@ -39,16 +40,20 @@ type TCPConnInterface interface {
 	Cancel()
 	Scan()
 	Done() <-chan struct{}
+	IsScanning() bool
+	IsClosed() bool
+	InstallNetConn(conn *net.TCPConn)
+	Clear()
 }
 
 type TCPBox interface {
 	TCPConnInterface
-	InstallTCPConn(conn *TCPConn)
+	InstallTCPConn(conn *TCPConn) (err error)
 }
 
 type TCPCtrlInterface interface {
 	TCPBox
-	ReInstallActor(actor Actor)
+	InstallActor(actor Actor)
 }
 
 type Actor interface {
@@ -63,8 +68,12 @@ type ActorType struct {
 	*TCPConn
 }
 
-func (a *ActorType) InstallTCPConn(conn *TCPConn) {
+func (a *ActorType) InstallTCPConn(conn *TCPConn) (err error) {
+	if a.isScanning && !a.isClosed{
+		err = a.Close()
+	}
 	a.TCPConn = conn
+	return err
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -80,12 +89,47 @@ func NewTCPConn(conn *net.TCPConn) *TCPConn {
 }
 
 type TCPConn struct {
-	data    chan []byte
-	info    chan string
-	error   chan error
+	data       chan []byte
+	info       chan string
+	error      chan error
+	mu         sync.RWMutex
+	isScanning bool
+	isClosed   bool
 	*net.TCPConn
 	Context context.Context
 	cancel  context.CancelFunc
+}
+
+// Clear should be defined by user, this is only an example
+func (t *TCPConn) Clear() {
+	t.mu.Lock()
+	t.isScanning = false
+	t.isClosed = false
+	t.InstallCtx(context.Background())
+	t.mu.Unlock()
+}
+
+func (t *TCPConn) InstallNetConn(conn *net.TCPConn) {
+	if t.isScanning{
+		select {
+		case <-t.Done():
+		default:
+			t.Close()
+		}
+	}
+	t.TCPConn = conn
+}
+
+func (t *TCPConn) IsScanning() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.isScanning
+}
+
+func (t *TCPConn) IsClosed() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.isClosed
 }
 
 func (t *TCPConn) Write(data []byte) (int, error) {
@@ -143,6 +187,9 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 
 func (t *TCPConn) Scan() {
 	defer t.Close()
+	t.mu.Lock()
+	t.isScanning = true
+	t.mu.Unlock()
 
 	scanner := bufio.NewScanner(t)
 	scanner.Split(t.split)
@@ -167,7 +214,17 @@ Circle:
 }
 
 func (t *TCPConn) Close() error {
+	select {
+	case <-t.Done():
+		return errors.New("TCPCtrl has already closed")
+	default:
+	}
 	t.Cancel()
+	t.mu.Lock()
+	t.isClosed = true
+	t.isScanning = false
+	t.mu.Unlock()
+
 	err := t.TCPConn.Close()
 	return err
 }
@@ -175,14 +232,14 @@ func (t *TCPConn) Close() error {
 func (t *TCPConn) ReadData() []byte {
 	select {
 	case data := <-t.data:
-		return data[headerLen: ]
+		return data[headerLen:]
 	}
 }
 
 func (t *TCPConn) ReadString() string {
 	select {
 	case data := <-t.data:
-		return string(data[headerLen: ])
+		return string(data[headerLen:])
 	}
 }
 
@@ -198,7 +255,7 @@ func (t *TCPConn) GetErrChan() <-chan error {
 	return t.error
 }
 
-func NewTCPCtrl(actor Actor) (*TCPCtrl) {
+func NewTCPCtrl(actor Actor) *TCPCtrl {
 	return &TCPCtrl{actor}
 }
 
@@ -207,12 +264,17 @@ type TCPCtrl struct {
 }
 
 func (t *TCPCtrl) Close() error {
+	select {
+	case <-t.Done():
+		return errors.New("TCPCtrl has already closed")
+	default:
+	}
 	t.OnClose()
 	err := t.Actor.Close()
 	return err
 }
 
-func (t *TCPCtrl) ReInstallActor(actor Actor) {
+func (t *TCPCtrl) InstallActor(actor Actor) {
 	t.Actor = actor
 }
 

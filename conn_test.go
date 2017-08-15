@@ -1,20 +1,20 @@
 package gtcp
 
 import (
-	"testing"
 	"bytes"
 	"encoding/binary"
-	"sync"
 	"fmt"
 	"io"
+	"sync"
+	"testing"
 )
 
 var testChanData = [...]string{
-		"hello world!",
-		"12312u4h18yg4912g49",
-		"你好世界！",
-		"こんにちは世界",
-		`Contributing
+	"hello world!",
+	"12312u4h18yg4912g49",
+	"你好世界！",
+	"こんにちは世界",
+	`Contributing
 
 To hack on this project:
 
@@ -29,7 +29,7 @@ Add your remote (git remote add fork git@github.com:firstrow/tcp_server.git)
 Push to the branch (git push fork my-new-feature)
 Create a new Pull Request on GitHub
 Notice: Always use the original import path by installing with go get.`,
-	}
+}
 
 const (
 	Addr = "127.0.0.1:8005"
@@ -178,15 +178,14 @@ func TestTCPConn(t *testing.T) {
 	server.Close()
 }
 
-
 type ServerType struct {
 	ActorType
-	Wg *sync.WaitGroup
-	T *testing.T
+	Wg   *sync.WaitGroup
+	T    *testing.T
 	Data []string
 }
 
-func (s *ServerType) OnConnect() error{
+func (s *ServerType) OnConnect() error {
 	_, err := s.Write([]byte(testChanData[0]))
 	return err
 }
@@ -213,7 +212,6 @@ func (s *ServerType) OnError(err error) error {
 	return nil
 }
 
-
 func TestTCPCtrlInterface_Server(t *testing.T) {
 	var wg sync.WaitGroup
 	//wg.Add(1)
@@ -228,9 +226,9 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 
 	go func() {
 		serverType := &ServerType{
-			Wg:&wg,
-			T: t,
-			Data:make([]string, 0),
+			Wg:   &wg,
+			T:    t,
+			Data: make([]string, 0),
 		}
 		tcpConn, err := listener.AcceptTCPCtrl(serverType)
 		if err != nil {
