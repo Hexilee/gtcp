@@ -26,12 +26,11 @@ func (s *ActorTestType) OnMessage(data []byte) error {
 	return nil
 }
 
-func (s *ActorTestType) OnClose() error {
+func (s *ActorTestType) OnClose() {
 	for n, data := range testChanData {
 		assertEqual(s.T, AddHeader([]byte(data)), s.Data[n], "Test TCP Type Err")
 	}
 	s.Wg1.Done()
-	return nil
 }
 
 func (s *ActorTestType) OnError(err error) error {

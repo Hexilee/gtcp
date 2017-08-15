@@ -1,7 +1,7 @@
 package gtcp
 
 import (
-	"errors"
+	"sync"
 )
 
 type TCPCtrlInterface interface {
@@ -10,22 +10,18 @@ type TCPCtrlInterface interface {
 }
 
 func NewTCPCtrl(actor Actor) *TCPCtrl {
-	return &TCPCtrl{actor}
+	return &TCPCtrl{Actor: actor}
 }
 
 type TCPCtrl struct {
 	Actor
+	OnceOnClose sync.Once
 }
 
 func (t *TCPCtrl) Close() error {
-	select {
-	case <-t.Done():
-		return errors.New("TCPCtrl has already closed")
-	default:
-	}
-	t.OnClose()
-	err := t.Actor.Close()
-	return err
+	t.OnceOnClose.Do(t.OnClose)
+	t.Actor.CloseOnce()
+	return nil
 }
 
 func (t *TCPCtrl) InstallActor(actor Actor) {

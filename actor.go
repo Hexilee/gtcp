@@ -5,20 +5,20 @@ type Actor interface {
 	OnConnect() error
 	OnMessage(data []byte) error
 	OnError(err error) error
-	OnClose() error
+	OnClose()
 }
 
 type ActorType struct {
 	*TCPConn
 }
 
-func (a *ActorType) ReInstallTCPConn(conn *TCPConn) (err error) {
-	if a.IsScanning() && !a.IsClosed() {
-		err = a.Close()
+func (a *ActorType) ReInstallTCPConn(conn *TCPConn) {
+	if a.IsScanning(){
+		a.CloseOnce()
 	}
 	a.TCPConn = conn
-	return err
 }
+
 
 func (a *ActorType) InstallTCPConn(conn *TCPConn) {
 	a.TCPConn = conn

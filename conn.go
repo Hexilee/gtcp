@@ -42,15 +42,15 @@ type TCPConnInterface interface {
 	Scan()
 	Done() <-chan struct{}
 	IsScanning() bool
-	IsClosed() bool
 	InstallNetConn(conn *net.TCPConn) (err error)
+	CloseOnce()
 	//Clear()
 }
 
 type TCPBox interface {
 	TCPConnInterface
 	InstallTCPConn(conn *TCPConn)
-	ReInstallTCPConn(conn *TCPConn) (err error)
+	ReInstallTCPConn(conn *TCPConn)
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -70,11 +70,11 @@ type TCPConn struct {
 	info       chan string
 	error      chan error
 	mu         sync.RWMutex
+	OnceClose  sync.Once
 	isScanning bool
-	isClosed   bool
 	*net.TCPConn
-	Context context.Context
-	cancel  context.CancelFunc
+	Context    context.Context
+	cancel     context.CancelFunc
 }
 
 // Clear should be defined by user, this is only an example
@@ -86,9 +86,18 @@ type TCPConn struct {
 //	t.mu.Unlock()
 //}
 
+func (t *TCPConn) CloseOnce() {
+	t.OnceClose.Do(func() {
+		err := t.Close()
+		if err!= nil {
+			t.error <- err
+		}
+	})
+}
+
 func (t *TCPConn) InstallNetConn(conn *net.TCPConn) (err error) {
-	if t.IsScanning() && !t.IsClosed(){
-		err = t.Close()
+	if t.IsScanning() {
+		t.CloseOnce()
 	}
 	t.TCPConn = conn
 	return err
@@ -100,11 +109,11 @@ func (t *TCPConn) IsScanning() bool {
 	return t.isScanning
 }
 
-func (t *TCPConn) IsClosed() bool {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	return t.isClosed
-}
+//func (t *TCPConn) IsClosed() bool {
+//	t.mu.RLock()
+//	defer t.mu.RUnlock()
+//	return t.isClosed
+//}
 
 func (t *TCPConn) Write(data []byte) (int, error) {
 	length := uint32(len(data))
@@ -193,14 +202,16 @@ func (t *TCPConn) Close() error {
 		return errors.New("TCPCtrl has already closed")
 	default:
 	}
-	t.Cancel()
-	t.mu.Lock()
-	t.isClosed = true
-	t.isScanning = false
-	t.mu.Unlock()
 
-	err := t.TCPConn.Close()
-	return err
+	t.Cancel()
+	if t.IsScanning() {
+		t.mu.Lock()
+		t.isScanning = false
+		t.mu.Unlock()
+
+	}
+
+	return t.TCPConn.Close()
 }
 
 func (t *TCPConn) ReadData() []byte {
