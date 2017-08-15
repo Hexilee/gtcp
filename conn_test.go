@@ -68,33 +68,14 @@ func TestTCPConnInterface(t *testing.T) {
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
+	client.Start()
 
 	var server TCPConnInterface
 	select {
 	case server = <-TCPChan:
 		break
 	}
-	testChanData := []string{
-		"hello world!",
-		"12312u4h18yg4912g49",
-		"你好世界！",
-		"こんにちは世界",
-		`Contributing
-
-To hack on this project:
-
-Install as usual (go get -u github.com/firstrow/tcp_server)
-Create your feature branch (git checkout -b my-new-feature)
-Ensure everything works and the tests pass (go test)
-Commit your changes (git commit -am 'Add some feature')
-Contribute upstream:
-
-Fork it on GitHub
-Add your remote (git remote add fork git@github.com:firstrow/tcp_server.git)
-Push to the branch (git push fork my-new-feature)
-Create a new Pull Request on GitHub
-Notice: Always use the original import path by installing with go get.`,
-	}
+	server.Start()
 
 	for _, testStr := range testChanData {
 		_, _ = client.Write([]byte(testStr))
@@ -143,12 +124,14 @@ func TestTCPConn(t *testing.T) {
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
+	client.Start()
 
 	var server TCPConnInterface
 	select {
 	case server = <-TCPChan:
 		break
 	}
+	server.Start()
 
 	for _, testStr := range testChanData {
 		_, _ = client.Write([]byte(testStr))

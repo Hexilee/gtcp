@@ -3,10 +3,12 @@ package gtcp
 import (
 	"sync"
 	"testing"
-	//"context"
+	"context"
 )
 
 func TestTCPConn_InstallCtx(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	var (
 		wg1 sync.WaitGroup
 		wg2 sync.WaitGroup
@@ -32,6 +34,7 @@ func TestTCPConn_InstallCtx(t *testing.T) {
 		if err != nil {
 			t.Errorf("tcp listener err: %s", err.Error())
 		}
+		tcpConn.StartWithCtx(ctx)
 		TCPChan <- tcpConn
 	}()
 
@@ -39,24 +42,14 @@ func TestTCPConn_InstallCtx(t *testing.T) {
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
+	client.Start()
 	assertEqual(t, testChanData[0], client.ReadString(), "conn onConnect write err (server)")
-
-	var server TCPConnInterface
-	select {
-	case server = <-TCPChan:
-		break
-	}
 
 	for _, testStr := range testChanData {
 		_, _ = client.Write([]byte(testStr))
 		wg2.Add(1)
 	}
 	wg2.Wait()
-
-	//ctx, cancel := context.WithCancel(context.Background())
-	//server.InstallCtx(ctx)
-	//cancel()
-	server.Cancel()
-	//server.Close()
+	cancel()
 	wg1.Wait()
 }

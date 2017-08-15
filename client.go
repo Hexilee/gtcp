@@ -22,7 +22,6 @@ func DialTCP(addr string) (*TCPConn, error) {
 		return nil, err
 	}
 	tcpConn := NewTCPConn(conn)
-	go tcpConn.Scan()
 	return tcpConn, nil
 }
 
@@ -35,6 +34,6 @@ func DialTCPCtrl(addr string, actor Actor) (TCPCtrlInterface, error) {
 	tcpConn := NewTCPConn(conn)
 	TCPCtrl := NewTCPCtrl(actor)
 	TCPCtrl.InstallTCPConn(tcpConn)
-	go TCPCtrl.Scan()
 	return TCPCtrl, err
 }
+

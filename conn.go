@@ -40,6 +40,8 @@ type TCPConnInterface interface {
 	GetErrChan() <-chan error
 	Cancel()
 	Scan()
+	Start()
+	StartWithCtx(ctx context.Context)
 	Done() <-chan struct{}
 	IsScanning() bool
 	InstallNetConn(conn *net.TCPConn) (err error)
@@ -77,6 +79,14 @@ type TCPConn struct {
 	cancel     context.CancelFunc
 }
 
+func (t *TCPConn) Start () {
+	go t.Scan()
+}
+
+func (t *TCPConn) StartWithCtx(ctx context.Context) {
+	t.InstallCtx(ctx)
+	go t.Scan()
+}
 // Clear should be defined by user, this is only an example
 //func (t *TCPConn) Clear() {
 //	t.mu.Lock()

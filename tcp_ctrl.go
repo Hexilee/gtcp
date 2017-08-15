@@ -2,6 +2,7 @@ package gtcp
 
 import (
 	"sync"
+	"context"
 )
 
 type TCPCtrlInterface interface {
@@ -26,6 +27,15 @@ func (t *TCPCtrl) Close() error {
 
 func (t *TCPCtrl) InstallActor(actor Actor) {
 	t.Actor = actor
+}
+
+func (t *TCPCtrl) Start () {
+	go t.Scan()
+}
+
+func (t *TCPCtrl) StartWithCtx(ctx context.Context) {
+	t.InstallCtx(ctx)
+	go t.Scan()
 }
 
 func (t *TCPCtrl) Scan() {

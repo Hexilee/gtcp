@@ -67,6 +67,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 		if err != nil {
 			t.Errorf("tcp listener err: %s", err.Error())
 		}
+		tcpConn.Start()
 		TCPChan <- tcpConn
 	}()
 
@@ -74,6 +75,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
+	client.Start()
 	assertEqual(t, testChanData[0], client.ReadString(), "conn onConnect write err (server)")
 
 	var server TCPConnInterface
@@ -111,6 +113,7 @@ func TestTCPCtrlInterface_Client(t *testing.T) {
 		if err != nil {
 			t.Errorf("tcp listener err: %s", err.Error())
 		}
+		tcpConn.Start()
 		TCPChan <- tcpConn
 	}()
 
@@ -124,6 +127,7 @@ func TestTCPCtrlInterface_Client(t *testing.T) {
 	if err != nil {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
+	client.Start()
 
 	var server TCPConnInterface
 	select {

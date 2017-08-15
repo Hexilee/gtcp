@@ -25,14 +25,12 @@ type TCPListener struct {
 func (t *TCPListener) AcceptTCP() (*TCPConn, error) {
 	conn, err := t.TCPListener.AcceptTCP()
 	tcpConn := NewTCPConn(conn)
-	go tcpConn.Scan()
 	return tcpConn, err
 }
 
 func (t *TCPListener) Accept() (TCPConnInterface, error) {
 	conn, err := t.TCPListener.AcceptTCP()
 	tcpConn := NewTCPConn(conn)
-	go tcpConn.Scan()
 	return tcpConn, err
 }
 
@@ -45,6 +43,5 @@ func (t *TCPListener) AcceptTCPCtrl(actor Actor) (TCPCtrlInterface, error) {
 	tcpConn := NewTCPConn(conn)
 	TCPCtrl := NewTCPCtrl(actor)
 	TCPCtrl.InstallTCPConn(tcpConn)
-	go TCPCtrl.Scan()
 	return TCPCtrl, err
 }
