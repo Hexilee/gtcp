@@ -43,7 +43,7 @@ type TCPConnInterface interface {
 	IsScanning() bool
 	IsClosed() bool
 	InstallNetConn(conn *net.TCPConn) (err error)
-	Clear()
+	//Clear()
 }
 
 type TCPBox interface {
@@ -77,13 +77,13 @@ type TCPConn struct {
 }
 
 // Clear should be defined by user, this is only an example
-func (t *TCPConn) Clear() {
-	t.mu.Lock()
-	t.isScanning = false
-	t.isClosed = false
-	t.InstallCtx(context.Background())
-	t.mu.Unlock()
-}
+//func (t *TCPConn) Clear() {
+//	t.mu.Lock()
+//	t.isScanning = false
+//	t.isClosed = false
+//	t.InstallCtx(context.Background())
+//	t.mu.Unlock()
+//}
 
 func (t *TCPConn) InstallNetConn(conn *net.TCPConn) (err error) {
 	if t.IsScanning() && !t.IsClosed(){
