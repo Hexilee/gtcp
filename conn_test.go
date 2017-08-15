@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"sync"
+	"fmt"
+	"io"
 )
 
 var testChanData = [...]string{
@@ -173,14 +175,15 @@ func TestTCPConn(t *testing.T) {
 		resultBytes := client.ReadData()
 		assertEqual(t, string(resultBytes), testStr, "TCP data err (server -> client)")
 	}
+	server.Close()
 }
 
 
 type ServerType struct {
+	ActorType
 	Wg *sync.WaitGroup
 	T *testing.T
 	Data []string
-	TCPType
 }
 
 func (s *ServerType) OnConnect() error{
@@ -196,18 +199,26 @@ func (s *ServerType) OnMessage(data []byte) error {
 
 func (s *ServerType) OnClose() error {
 	for n, data := range testChanData {
-		assertEqual(s.T, AddHeader([]byte(data)), s.Data[4-n], "Test TCP Type Err")
+		assertEqual(s.T, AddHeader([]byte(data)), s.Data[n], "Test TCP Type Err")
 	}
 	s.Wg.Done()
 	return nil
 }
 
+func (s *ServerType) OnError(err error) error {
+	fmt.Println(err)
+	if err != io.EOF {
+		s.Close()
+	}
+	return nil
+}
 
-func TestTCPTypeInterface(t *testing.T) {
+
+func TestTCPCtrlInterface_Server(t *testing.T) {
 	var wg sync.WaitGroup
 	//wg.Add(1)
 
-	TCPChan := make(chan TCPTypeInterface)
+	TCPChan := make(chan TCPCtrlInterface)
 
 	listener, err := NewTCPListenser(Addr)
 	if err != nil {
@@ -221,7 +232,8 @@ func TestTCPTypeInterface(t *testing.T) {
 			T: t,
 			Data:make([]string, 0),
 		}
-		tcpConn, err := listener.AcceptTCPType(serverType)
+		tcpConn, err := listener.AcceptTCPCtrl()
+		tcpConn.InstallActor(serverType)
 		if err != nil {
 			t.Errorf("tcp listener err: %s", err.Error())
 		}
@@ -234,16 +246,16 @@ func TestTCPTypeInterface(t *testing.T) {
 	}
 	assertEqual(t, testChanData[0], client.ReadString(), "conn onConnect write err (server)")
 
-	var server TCPConnInterface
-	select {
-	case server = <-TCPChan:
-		break
-	}
+	//var server TCPConnInterface
+	//select {
+	//case server = <-TCPChan:
+	//	break
+	//}
 
 	for _, testStr := range testChanData {
 		_, _ = client.Write([]byte(testStr))
 		wg.Add(1)
 	}
-	server.Close()
 	wg.Wait()
+	//server.Close()
 }

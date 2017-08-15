@@ -36,14 +36,14 @@ func (t *TCPListener) Accept() (TCPConnInterface, error) {
 	return tcpConn, err
 }
 
-func (t *TCPListener) AcceptTCPType(tcpType TCPTypeInterface) (TCPTypeInterface, error) {
+func (t *TCPListener) AcceptTCPCtrl() (TCPCtrlInterface, error) {
 	conn, err := t.TCPListener.AcceptTCP()
 
 	if err != nil {
 		return nil, err
 	}
 	tcpConn := NewTCPConn(conn)
-	tcpType.InstallTCPConn(tcpConn)
-	go tcpType.Scan()
-	return tcpType, err
+	TCPCtrl := NewTCPCtrl(tcpConn)
+	go TCPCtrl.Scan()
+	return TCPCtrl, err
 }

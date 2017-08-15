@@ -40,13 +40,30 @@ type TCPConnInterface interface {
 	Scan()
 }
 
-type TCPTypeInterface interface {
+type TCPBox interface {
 	TCPConnInterface
+	InstallTCPConn(conn *TCPConn)
+}
+
+type TCPCtrlInterface interface {
+	TCPBox
+	InstallActor(actor ActorInterface)
+}
+
+type ActorInterface interface {
+	TCPBox
 	OnConnect() error
 	OnMessage(data []byte) error
 	OnError(err error) error
 	OnClose() error
-	InstallTCPConn(conn *TCPConn)
+}
+
+type ActorType struct {
+	*TCPConn
+}
+
+func (a *ActorType) InstallTCPConn(conn *TCPConn) {
+	a.TCPConn = conn
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -120,6 +137,8 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 }
 
 func (t *TCPConn) Scan() {
+	defer t.Close()
+
 	scanner := bufio.NewScanner(t)
 	scanner.Split(t.split)
 
@@ -140,6 +159,12 @@ Circle:
 	if err := scanner.Err(); err != nil {
 		t.error <- err
 	}
+}
+
+func (t *TCPConn) Close() error {
+	t.Cancel()
+	err := t.TCPConn.Close()
+	return err
 }
 
 func (t *TCPConn) ReadData() []byte {
@@ -168,39 +193,49 @@ func (t *TCPConn) GetErrChan() <-chan error {
 	return t.error
 }
 
-type TCPType struct {
+func NewTCPCtrl(conn *TCPConn) (*TCPCtrl) {
+	return &TCPCtrl{
+		TCPConn: conn,
+	}
+}
+
+type TCPCtrl struct {
+	actor ActorInterface
 	*TCPConn
 }
 
-func (t *TCPType) Close() error {
-	t.OnClose()
-	t.Cancel()
+func (t *TCPCtrl) Close() error {
+	t.actor.OnClose()
 	err := t.TCPConn.Close()
 	return err
 }
 
-func (t *TCPType) InstallTCPConn(conn *TCPConn) {
+func (t *TCPCtrl) InstallTCPConn(conn *TCPConn) {
 	t.TCPConn = conn
 }
 
-func (t *TCPType) OnConnect() error {
-	return nil
+func (t *TCPCtrl) InstallActor(actor ActorInterface) {
+	t.actor = actor
+	actor.InstallTCPConn(t.TCPConn)
 }
-func (t *TCPType) OnMessage(data []byte) error {
-	return nil
-}
-func (t *TCPType) OnError(err error) error {
-	return nil
-}
-func (t *TCPType) OnClose() error {
-	return nil
-}
+//func (t *TCPCtrl) OnConnect() error {
+//	return nil
+//}
+//func (t *TCPCtrl) OnMessage(data []byte) error {
+//	return nil
+//}
+//func (t *TCPCtrl) OnError(err error) error {
+//	return nil
+//}
+//func (t *TCPCtrl) OnClose() error {
+//	return nil
+//}
 
-func (t *TCPType) Scan() {
+func (t *TCPCtrl) Scan() {
 	defer t.Close()
-	err := t.OnConnect()
+	err := t.actor.OnConnect()
 	for err != nil {
-		err = t.OnError(err)
+		err = t.actor.OnError(err)
 	}
 
 	scanner := bufio.NewScanner(t)
@@ -218,14 +253,14 @@ Circle:
 		data := scanner.Bytes()
 		msg := make([]byte, len(data))
 		copy(msg, data)
-		err := t.OnMessage(msg)
+		err := t.actor.OnMessage(msg)
 		for err != nil {
-			err = t.OnError(err)
+			err = t.actor.OnError(err)
 			break Circle
 		}
 	}
 	err = scanner.Err()
 	for err != nil {
-		err = t.OnError(err)
+		err = t.actor.OnError(err)
 	}
 }

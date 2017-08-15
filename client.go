@@ -26,14 +26,14 @@ func DialTCP(addr string) (*TCPConn, error) {
 	return tcpConn, nil
 }
 
-func DialTCPType(addr string, tcpType TCPTypeInterface) (TCPTypeInterface, error) {
+func DialTCPCtrl(addr string, TCPCtrl TCPCtrlInterface) (TCPCtrlInterface, error) {
 	conn, err := getConn(addr)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
 	tcpConn := NewTCPConn(conn)
-	tcpType.InstallTCPConn(tcpConn)
-	go tcpType.Scan()
-	return tcpType, err
+	TCPCtrl.InstallTCPConn(tcpConn)
+	go TCPCtrl.Scan()
+	return TCPCtrl, err
 }
