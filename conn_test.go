@@ -232,8 +232,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 			T: t,
 			Data:make([]string, 0),
 		}
-		tcpConn, err := listener.AcceptTCPCtrl()
-		tcpConn.InstallActor(serverType)
+		tcpConn, err := listener.AcceptTCPCtrl(serverType)
 		if err != nil {
 			t.Errorf("tcp listener err: %s", err.Error())
 		}
@@ -257,5 +256,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 		wg.Add(1)
 	}
 	wg.Wait()
+	//wg.Add(1)
 	//server.Close()
+	//wg.Wait()
 }

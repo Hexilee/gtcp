@@ -38,6 +38,7 @@ type TCPConnInterface interface {
 	GetErrChan() <-chan error
 	Cancel()
 	Scan()
+	Done() <-chan struct{}
 }
 
 type TCPBox interface {
@@ -47,10 +48,10 @@ type TCPBox interface {
 
 type TCPCtrlInterface interface {
 	TCPBox
-	InstallActor(actor ActorInterface)
+	ReInstallActor(actor Actor)
 }
 
-type ActorInterface interface {
+type Actor interface {
 	TCPBox
 	OnConnect() error
 	OnMessage(data []byte) error
@@ -102,6 +103,10 @@ func (t *TCPConn) Write(data []byte) (int, error) {
 
 func (t *TCPConn) Cancel() {
 	t.cancel()
+}
+
+func (t *TCPConn) Done() <-chan struct{} {
+	return t.Context.Done()
 }
 
 func (t *TCPConn) InstallCtx(ctx context.Context) {
@@ -193,74 +198,50 @@ func (t *TCPConn) GetErrChan() <-chan error {
 	return t.error
 }
 
-func NewTCPCtrl(conn *TCPConn) (*TCPCtrl) {
-	return &TCPCtrl{
-		TCPConn: conn,
-	}
+func NewTCPCtrl(actor Actor) (*TCPCtrl) {
+	return &TCPCtrl{actor}
 }
 
 type TCPCtrl struct {
-	actor ActorInterface
-	*TCPConn
+	Actor
 }
 
 func (t *TCPCtrl) Close() error {
-	t.actor.OnClose()
-	err := t.TCPConn.Close()
+	t.OnClose()
+	err := t.Actor.Close()
 	return err
 }
 
-func (t *TCPCtrl) InstallTCPConn(conn *TCPConn) {
-	t.TCPConn = conn
+func (t *TCPCtrl) ReInstallActor(actor Actor) {
+	t.Actor = actor
 }
-
-func (t *TCPCtrl) InstallActor(actor ActorInterface) {
-	t.actor = actor
-	actor.InstallTCPConn(t.TCPConn)
-}
-//func (t *TCPCtrl) OnConnect() error {
-//	return nil
-//}
-//func (t *TCPCtrl) OnMessage(data []byte) error {
-//	return nil
-//}
-//func (t *TCPCtrl) OnError(err error) error {
-//	return nil
-//}
-//func (t *TCPCtrl) OnClose() error {
-//	return nil
-//}
 
 func (t *TCPCtrl) Scan() {
 	defer t.Close()
-	err := t.actor.OnConnect()
+	err := t.OnConnect()
 	for err != nil {
-		err = t.actor.OnError(err)
+		err = t.OnError(err)
 	}
 
-	scanner := bufio.NewScanner(t)
-	scanner.Split(t.split)
+	go t.Actor.Scan()
+
+	dataChan := t.GetDataChan()
+	errChan := t.GetErrChan()
 
 Circle:
-	for scanner.Scan() {
+	for {
 		select {
-		case <-t.Context.Done():
-			t.info <- fmt.Sprintf("Conn Done. Addr: %s", t.RemoteAddr().String())
+		case <-t.Done():
 			break Circle
-		default:
+		case data := <-dataChan:
+			err := t.OnMessage(data)
+			for err != nil {
+				err = t.OnError(err)
+			}
+		case err := <-errChan:
+			for err != nil {
+				err = t.OnError(err)
+			}
 		}
-
-		data := scanner.Bytes()
-		msg := make([]byte, len(data))
-		copy(msg, data)
-		err := t.actor.OnMessage(msg)
-		for err != nil {
-			err = t.actor.OnError(err)
-			break Circle
-		}
-	}
-	err = scanner.Err()
-	for err != nil {
-		err = t.actor.OnError(err)
 	}
 }
