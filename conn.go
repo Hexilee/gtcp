@@ -22,6 +22,7 @@ const (
 type TCPConnInterface interface {
 	net.Conn
 	ReadData() []byte
+	ReadString() string
 	CloseRead() error
 	CloseWrite() error
 	File() (f *os.File, err error)
