@@ -20,7 +20,7 @@ const (
 
 type TCPConnInterface interface {
 	net.Conn
-	ReadData()[]byte
+	ReadData() []byte
 	CloseRead() error
 	CloseWrite() error
 	File() (f *os.File, err error)
@@ -42,14 +42,10 @@ type TCPConnInterface interface {
 
 type TCPTypeInterface interface {
 	TCPConnInterface
-	//OnConnect(fn TCPOnConnect)
-	//OnMessage(fn )
-	//OnError(err error) error
-	//OnClose() error
-	//onConnect() error
-	//onMessage(data []byte) error
-	//onError(err error) error
-	//onClose() error
+	OnConnect() error
+	OnMessage(data []byte) error
+	OnError(err error) error
+	OnClose() error
 	InstallTCPConn(conn *TCPConn)
 }
 
@@ -70,10 +66,6 @@ type TCPConn struct {
 	info    chan string
 	error   chan error
 	*net.TCPConn
-	onConnect TCPOnConnect
-	onMessage TCPOnMessage
-	onError  TCPOnError
-	onClose TCPOnClose
 	Context context.Context
 	cancel  context.CancelFunc
 }
@@ -152,14 +144,14 @@ Circle:
 
 func (t *TCPConn) ReadData() []byte {
 	select {
-	case data := <- t.data:
+	case data := <-t.data:
 		return data[headerLen: ]
 	}
 }
 
 func (t *TCPConn) ReadString() string {
 	select {
-	case data := <- t.data:
+	case data := <-t.data:
 		return string(data[headerLen: ])
 	}
 }
@@ -180,41 +172,35 @@ type TCPType struct {
 	*TCPConn
 }
 
-type TCPOnConnect func(t TCPTypeInterface) error
-type TCPOnMessage func(t TCPTypeInterface, data []byte) error
-type TCPOnError func(t TCPTypeInterface, err error) error
-type TCPOnClose func(t TCPTypeInterface) error
-
 func (t *TCPType) Close() error {
-	t.onClose(t)
+	t.OnClose()
 	t.Cancel()
 	err := t.TCPConn.Close()
 	return err
 }
 
-
 func (t *TCPType) InstallTCPConn(conn *TCPConn) {
 	t.TCPConn = conn
 }
 
-func (t *TCPType) OnConnect(fn func(t TCPTypeInterface) error) {
-	t.onConnect = fn
+func (t *TCPType) OnConnect() error {
+	return nil
 }
-func (t *TCPType) OnMessage(fn TCPOnMessage) {
-	t.onMessage = fn
+func (t *TCPType) OnMessage(data []byte) error {
+	return nil
 }
-func (t *TCPType) OnError(fn TCPOnError) {
-	t.onError = fn
+func (t *TCPType) OnError(err error) error {
+	return nil
 }
-func (t *TCPType) OnClose(fn TCPOnClose) {
-	t.onClose = fn
+func (t *TCPType) OnClose() error {
+	return nil
 }
 
 func (t *TCPType) Scan() {
 	defer t.Close()
-	err := t.onConnect(t)
+	err := t.OnConnect()
 	for err != nil {
-			err = t.onError(t, err)
+		err = t.OnError(err)
 	}
 
 	scanner := bufio.NewScanner(t)
@@ -232,14 +218,14 @@ Circle:
 		data := scanner.Bytes()
 		msg := make([]byte, len(data))
 		copy(msg, data)
-		err := t.onMessage(t, msg)
+		err := t.OnMessage(msg)
 		for err != nil {
-			err = t.onError(t, err)
+			err = t.OnError(err)
 			break Circle
 		}
 	}
 	err = scanner.Err()
 	for err != nil {
-		err = t.onError(t, err)
+		err = t.OnError(err)
 	}
 }

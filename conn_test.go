@@ -30,7 +30,7 @@ Notice: Always use the original import path by installing with go get.`,
 	}
 
 const (
-	Addr = "127.0.0.1:8000"
+	Addr = "127.0.0.1:8005"
 )
 
 func assertEqual(t *testing.T, expect string, got string, msg string) {
@@ -183,6 +183,10 @@ type ServerType struct {
 	TCPType
 }
 
+func (s *ServerType) OnConnect() error{
+	_, err := s.Write([]byte(testChanData[0]))
+	return err
+}
 
 func (s *ServerType) OnMessage(data []byte) error {
 	s.Data = append(s.Data, string(data))
@@ -217,10 +221,6 @@ func TestTCPTypeInterface(t *testing.T) {
 			T: t,
 			Data:make([]string, 0),
 		}
-		serverType.OnConnect(func(s *) error{
-	_, err := s.Write([]byte(testChanData[0]))
-	return err
-})
 		tcpConn, err := listener.AcceptTCPType(serverType)
 		if err != nil {
 			t.Errorf("tcp listener err: %s", err.Error())

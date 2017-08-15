@@ -45,6 +45,5 @@ func (t *TCPListener) AcceptTCPType(tcpType TCPTypeInterface) (TCPTypeInterface,
 	tcpConn := NewTCPConn(conn)
 	tcpType.InstallTCPConn(tcpConn)
 	go tcpType.Scan()
-	err = tcpType.onConnect()
 	return tcpType, err
 }

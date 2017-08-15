@@ -35,6 +35,5 @@ func DialTCPType(addr string, tcpType TCPTypeInterface) (TCPTypeInterface, error
 	tcpConn := NewTCPConn(conn)
 	tcpType.InstallTCPConn(tcpConn)
 	go tcpType.Scan()
-	tcpType.onConnect()
 	return tcpType, err
 }
