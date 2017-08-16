@@ -16,12 +16,7 @@ func (a *ActorType) ReInstallTCPConn(conn *TCPConn) {
 	if a.IsScanning() {
 		a.CloseOnce()
 	}
-	if IsPoolInit() {
-		select {
-		case p.recycle <- a.TCPConn:
-		default:
-		}
-	}
+	SendConnToPool(a.TCPConn)
 	a.TCPConn = conn
 }
 

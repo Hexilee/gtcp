@@ -68,15 +68,10 @@ func NewTCPConn(conn *net.TCPConn) *TCPConn {
 }
 
 func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn){
-	if IsPoolInit() {
-		select {
-		case tcpConn = <- p.pool:
-			tcpConn.InstallNetConn(conn)
-			return
-		default:
-		}
+	tcpConn, ok := GetConnFromPool(conn)
+	if !ok {
+		tcpConn = NewTCPConn(conn)
 	}
-	tcpConn = NewTCPConn(conn)
 	return
 }
 
@@ -222,6 +217,8 @@ Circle:
 }
 
 func (t *TCPConn) Close() error {
+	defer SendConnToPool(t)
+
 	select {
 	case <-t.Done():
 		return errors.New("TCPCtrl has already closed")
@@ -235,7 +232,6 @@ func (t *TCPConn) Close() error {
 		t.mu.Unlock()
 
 	}
-
 	return t.TCPConn.Close()
 }
 

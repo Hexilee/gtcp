@@ -36,7 +36,7 @@ func (s *ActorTestType) OnClose() {
 func (s *ActorTestType) OnError(err error) error {
 	fmt.Println(err)
 	if err != io.EOF {
-		s.Close()
+		s.CloseOnce()
 	}
 	return nil
 }

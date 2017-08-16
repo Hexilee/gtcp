@@ -3,6 +3,7 @@ package gtcp
 import (
 	"sync"
 	"context"
+	"net"
 )
 
 type Pool struct {
@@ -34,10 +35,11 @@ Circle:
 	}
 }
 
-func GetConnFromPool() (tcpConn *TCPConn, ok bool) {
+func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
 	if IsPoolInit() {
 		select {
 		case tcpConn = <-p.pool:
+			tcpConn.InstallNetConn(conn)
 			return tcpConn, ok
 		default:
 		}
