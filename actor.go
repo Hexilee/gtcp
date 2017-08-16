@@ -12,11 +12,12 @@ type ActorType struct {
 	*TCPConn
 }
 
-func (a *ActorType) ReInstallTCPConn(conn *TCPConn) {
+func (a *ActorType) ReInstallTCPConn(conn *TCPConn) *TCPConn {
 	if a.IsScanning(){
 		a.CloseOnce()
 	}
-	a.TCPConn = conn
+	a.TCPConn, conn = conn, a.TCPConn
+	return conn
 }
 
 

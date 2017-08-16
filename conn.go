@@ -46,13 +46,13 @@ type TCPConnInterface interface {
 	IsScanning() bool
 	InstallNetConn(conn *net.TCPConn) (err error)
 	CloseOnce()
-	//Clear()
+	Clear()
 }
 
 type TCPBox interface {
 	TCPConnInterface
 	InstallTCPConn(conn *TCPConn)
-	ReInstallTCPConn(conn *TCPConn)
+	ReInstallTCPConn(conn *TCPConn) *TCPConn
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -87,14 +87,15 @@ func (t *TCPConn) StartWithCtx(ctx context.Context) {
 	t.InstallCtx(ctx)
 	go t.Scan()
 }
-// Clear should be defined by user, this is only an example
-//func (t *TCPConn) Clear() {
-//	t.mu.Lock()
-//	t.isScanning = false
-//	t.isClosed = false
-//	t.InstallCtx(context.Background())
-//	t.mu.Unlock()
-//}
+
+func (t *TCPConn) Clear() {
+	t.CloseOnce()
+	t.mu.Lock()
+	t.OnceClose = sync.Once{}
+	t.isScanning = false
+	t.InstallCtx(context.Background())
+	t.mu.Unlock()
+}
 
 func (t *TCPConn) CloseOnce() {
 	t.OnceClose.Do(func() {
@@ -106,8 +107,10 @@ func (t *TCPConn) CloseOnce() {
 }
 
 func (t *TCPConn) InstallNetConn(conn *net.TCPConn) (err error) {
-	if t.IsScanning() {
-		t.CloseOnce()
+	select {
+	case <- t.Done():
+	default:
+		t.Clear()
 	}
 	t.TCPConn = conn
 	return err
@@ -179,7 +182,7 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 }
 
 func (t *TCPConn) Scan() {
-	defer t.Close()
+	defer t.CloseOnce()
 	t.mu.Lock()
 	t.isScanning = true
 	t.mu.Unlock()
