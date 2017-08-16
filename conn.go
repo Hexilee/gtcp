@@ -44,7 +44,7 @@ type TCPConnInterface interface {
 	StartWithCtx(ctx context.Context)
 	Done() <-chan struct{}
 	IsScanning() bool
-	InstallNetConn(conn *net.TCPConn) (err error)
+	InstallNetConn(conn *net.TCPConn)
 	CloseOnce()
 	Clear()
 }
@@ -52,7 +52,7 @@ type TCPConnInterface interface {
 type TCPBox interface {
 	TCPConnInterface
 	InstallTCPConn(conn *TCPConn)
-	ReInstallTCPConn(conn *TCPConn) *TCPConn
+	ReInstallTCPConn(conn *TCPConn)
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -65,6 +65,19 @@ func NewTCPConn(conn *net.TCPConn) *TCPConn {
 		Context: ctx,
 		cancel:  cancelFunc,
 	}
+}
+
+func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn){
+	if IsPoolInit() {
+		select {
+		case tcpConn = <- p.pool:
+			tcpConn.InstallNetConn(conn)
+			return
+		default:
+		}
+	}
+	tcpConn = NewTCPConn(conn)
+	return
 }
 
 type TCPConn struct {
@@ -106,14 +119,13 @@ func (t *TCPConn) CloseOnce() {
 	})
 }
 
-func (t *TCPConn) InstallNetConn(conn *net.TCPConn) (err error) {
+func (t *TCPConn) InstallNetConn(conn *net.TCPConn) {
 	select {
 	case <- t.Done():
 	default:
 		t.Clear()
 	}
 	t.TCPConn = conn
-	return err
 }
 
 func (t *TCPConn) IsScanning() bool {
