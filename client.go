@@ -32,8 +32,7 @@ func DialTCPCtrl(addr string, actor Actor) (TCPCtrlInterface, error) {
 		return nil, err
 	}
 	tcpConn := GetTCPConn(conn)
-	TCPCtrl := NewTCPCtrl(actor)
-	TCPCtrl.InstallTCPConn(tcpConn)
-	return TCPCtrl, err
+	tcpCtrl := NewTCPCtrl(actor)
+	tcpCtrl.InstallTCPConn(tcpConn)
+	return tcpCtrl, err
 }
-
