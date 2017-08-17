@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	pool = new(Pool)
+	pool       = new(Pool)
 	poolMu     sync.RWMutex
 	isPoolOpen bool
 )
@@ -40,11 +40,14 @@ func GetActorFromPool() (actor Actor, ok bool) {
 }
 
 func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
-	if IsPoolOpen() {
+	if IsPoolOpen() || IsConnPoolOpen() {
 		select {
 		case tcpConn = <-pool.conns:
 			tcpConn.InstallNetConn(conn)
-			return tcpConn, true
+			ok = true
+		case tcpConn = <-connP:
+			tcpConn.InstallNetConn(conn)
+			ok = true
 		default:
 		}
 	}
@@ -69,15 +72,18 @@ func SendActorToPool(actor Actor) {
 		}
 	}
 }
+
 func SendConnToPool(conn *TCPConn) {
-	if IsPoolOpen() {
+	if IsPoolOpen() || IsConnPoolOpen() {
 		conn.Clear()
 		select {
 		case pool.conns <- conn:
+		case connP <- conn:
 		default:
 		}
 	}
 }
+
 func (p *Pool) GetCtrls() <-chan *TCPCtrl {
 	return p.ctrls
 }

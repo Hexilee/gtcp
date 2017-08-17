@@ -2,38 +2,15 @@ package gtcp
 
 import (
 	"sync"
-	"net"
 )
 
 var (
+	connMu         sync.RWMutex
 	connP          ConnPool
-	connPMu        sync.RWMutex
 	isConnPoolOpen bool
 )
 
 type ConnPool chan *TCPConn
-
-func GetConnFromConnPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
-	if IsConnPoolOpen() {
-		select {
-		case tcpConn = <-connP:
-			tcpConn.InstallNetConn(conn)
-			return tcpConn, true
-		default:
-		}
-	}
-	return
-}
-
-func SendConnToConnPool(conn *TCPConn) {
-	if IsConnPoolOpen() {
-		conn.Clear()
-		select {
-		case connP <- conn:
-		default:
-		}
-	}
-}
 
 func GetConnPool() ConnPool {
 	return connP
@@ -41,16 +18,16 @@ func GetConnPool() ConnPool {
 
 func OpenConnPool(size uint) {
 	if !IsConnPoolOpen() {
-		connPMu.Lock()
+		connMu.Lock()
 		connP = make(chan *TCPConn, size)
 		isConnPoolOpen = true
-		connPMu.Unlock()
+		connMu.Unlock()
 	}
 }
 
 func IsConnPoolOpen() bool {
-	connPMu.RLock()
-	defer connPMu.RUnlock()
+	connMu.RLock()
+	defer connMu.RUnlock()
 	return isConnPoolOpen
 }
 
@@ -60,8 +37,8 @@ func ReopenConnPool(size uint) {
 }
 
 func DropConnPool() {
-	connPMu.Lock()
-	connP = make(ConnPool)
+	connMu.Lock()
+	connP = nil
 	isConnPoolOpen = false
-	connPMu.Unlock()
+	connMu.Unlock()
 }
