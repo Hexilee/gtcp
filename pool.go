@@ -22,13 +22,20 @@ func (p *Pool) InstallCtx(ctx context.Context) {
 	p.Ctx, p.Cancel = context.WithCancel(ctx)
 }
 
+func (p *Pool) reuse(conn *TCPConn) {
+	select {
+	case p.pool <- conn:
+	default:
+	}
+}
+
 func (p *Pool) ClearPool() {
 Circle:
 	for {
 		select {
 		case conn := <-p.recycle:
 			conn.Clear()
-			p.pool <- conn
+			p.reuse(conn)
 		case <-p.Ctx.Done():
 			break Circle
 		}
@@ -69,6 +76,9 @@ func GetPool() *Pool {
 }
 
 func InitPool(size uint) {
+	if IsPoolInit() {
+		return
+	}
 	p.InstallCtx(context.Background())
 	p.pool = make(chan *TCPConn, size)
 	p.recycle = make(chan *TCPConn, size)
@@ -95,6 +105,9 @@ func IsPoolOpen() bool {
 }
 
 func OpenPool() {
+	if IsPoolOpen() {
+		return
+	}
 	p.mu.Lock()
 	p.isOpen = true
 	p.mu.Unlock()
@@ -109,13 +122,13 @@ func ClosePool() {
 }
 
 func ReopenPool() {
-	p.Cancel()
+	ClosePool()
 	p.InstallCtx(context.Background())
 	go p.ClearPool()
 }
 
 func ReopenPoolWithCtx(ctx context.Context) {
-	p.Cancel()
+	ClosePool()
 	p.InstallCtx(ctx)
 	go p.ClearPool()
 }

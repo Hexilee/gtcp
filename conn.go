@@ -97,7 +97,7 @@ func (t *TCPConn) StartWithCtx(ctx context.Context) {
 }
 
 func (t *TCPConn) Clear() {
-	t.CloseOnce()
+	//t.CloseOnce()
 	t.mu.Lock()
 	t.OnceClose = sync.Once{}
 	t.isScanning = false
