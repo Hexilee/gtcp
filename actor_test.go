@@ -48,7 +48,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 	)
 	wg1.Add(1)
 
-	TCPChan := make(chan TCPCtrlInterface)
+	TCPChan := make(chan *TCPCtrl)
 
 	listener, err := NewTCPListener(Addr)
 	if err != nil {
@@ -78,7 +78,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 	client.Start()
 	assertEqual(t, testChanData[0], client.ReadString(), "conn onConnect write err (server)")
 
-	var server TCPConnInterface
+	var server *TCPCtrl
 	select {
 	case server = <-TCPChan:
 		break
@@ -98,7 +98,6 @@ func TestTCPCtrlInterface_Client(t *testing.T) {
 		wg1 sync.WaitGroup
 		wg2 sync.WaitGroup
 	)
-	wg1.Add(1)
 
 	TCPChan := make(chan *TCPConn)
 
@@ -117,6 +116,7 @@ func TestTCPCtrlInterface_Client(t *testing.T) {
 		TCPChan <- tcpConn
 	}()
 
+	wg1.Add(1)
 	actorTestType := &ActorTestType{
 		Wg1:  &wg1,
 		Wg2:  &wg2,
@@ -128,18 +128,13 @@ func TestTCPCtrlInterface_Client(t *testing.T) {
 		t.Errorf("tcp listener err: %s", err.Error())
 	}
 	client.Start()
-
-	var server TCPConnInterface
 	select {
-	case server = <-TCPChan:
-		break
-	}
-
-	assertEqual(t, testChanData[0], server.ReadString(), "conn onConnect write err (client)")
-
-	for _, testStr := range testChanData {
-		_, _ = server.Write([]byte(testStr))
-		wg2.Add(1)
+	case server := <-TCPChan:
+		assertEqual(t, testChanData[0], server.ReadString(), "conn onConnect write err (client)")
+		for _, testStr := range testChanData {
+			_, _ = server.Write([]byte(testStr))
+			wg2.Add(1)
+		}
 	}
 	wg2.Wait()
 	client.Close()

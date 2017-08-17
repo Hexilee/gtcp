@@ -34,7 +34,7 @@ func (t *TCPListener) Accept() (TCPConnInterface, error) {
 	return tcpConn, err
 }
 
-func (t *TCPListener) AcceptTCPCtrl(actor Actor) (TCPCtrlInterface, error) {
+func (t *TCPListener) AcceptTCPCtrl(actor Actor) (*TCPCtrl, error) {
 	conn, err := t.TCPListener.AcceptTCP()
 
 	if err != nil {

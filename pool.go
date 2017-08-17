@@ -1,55 +1,124 @@
 package gtcp
 
-import "context"
+import (
+	"sync"
+	"net"
+)
 
+var (
+	pool = new(Pool)
+	poolMu     sync.RWMutex
+	isPoolOpen bool
+)
 
-func InitPool(size uint) {
-	InitConnPool(size)
-	InitCtrlPool(size)
+type Pool struct {
+	ctrls  chan *TCPCtrl
+	actors chan Actor
+	conns  chan *TCPConn
 }
 
-func InitPoolWithCtx(size uint, ctx context.Context) {
-	InitConnPoolWithCtx(size, ctx)
-	InitCtrlPoolWithCtx(size, ctx)
+func GetCtrlFromPool(actor Actor) (tcpCtrl *TCPCtrl, ok bool) {
+	if IsPoolOpen() {
+		select {
+		case tcpCtrl = <-pool.ctrls:
+			tcpCtrl.InstallActor(actor)
+			return tcpCtrl, true
+		default:
+		}
+	}
+	return
 }
 
-func OpenPool() {
-	OpenConnPool()
-	OpenCtrlPool()
+func GetActorFromPool() (actor Actor, ok bool) {
+	if IsPoolOpen() {
+		select {
+		case actor = <-pool.actors:
+			return actor, true
+		}
+	}
+	return
 }
 
-func ClosePool() {
-	CloseCtrlPool()
-	CloseConnPool()
+func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
+	if IsPoolOpen() {
+		select {
+		case tcpConn = <-pool.conns:
+			tcpConn.InstallNetConn(conn)
+			return tcpConn, true
+		default:
+		}
+	}
+	return
 }
 
-func ReopenPool() {
-	ClosePool()
-	OpenConnPool()
-	OpenCtrlPool()
+func SendCtrlToPool(ctrl *TCPCtrl) {
+	if IsPoolOpen() {
+		ctrl.Clear()
+		select {
+		case pool.ctrls <- ctrl:
+		default:
+		}
+	}
 }
 
-func ReopenPoolWithCtx(ctx context.Context) {
-	ClosePool()
-	ctrlP.InstallCtx(ctx)
-	connP.InstallCtx(ctx)
-	OpenConnPool()
-	OpenCtrlPool()
+func SendActorToPool(actor Actor) {
+	if IsPoolOpen() {
+		select {
+		case pool.actors <- actor:
+		default:
+		}
+	}
+}
+func SendConnToPool(conn *TCPConn) {
+	if IsPoolOpen() {
+		conn.Clear()
+		select {
+		case pool.conns <- conn:
+		default:
+		}
+	}
+}
+func (p *Pool) GetCtrls() <-chan *TCPCtrl {
+	return p.ctrls
+}
+
+func (p *Pool) GetActors() <-chan Actor {
+	return p.actors
+}
+
+func (p *Pool) GetConns() <-chan *TCPConn {
+	return p.conns
+}
+
+func GetPool() *Pool {
+	return pool
+}
+
+func OpenPool(size uint) {
+	if !IsPoolOpen() {
+		poolMu.Lock()
+		pool.ctrls = make(chan *TCPCtrl, size)
+		pool.actors = make(chan Actor, size)
+		pool.conns = make(chan *TCPConn, size)
+		isPoolOpen = true
+		poolMu.Unlock()
+	}
+}
+
+func IsPoolOpen() bool {
+	poolMu.RLock()
+	defer poolMu.RUnlock()
+	return isPoolOpen
+}
+
+func ReopenPool(size uint) {
+	DropPool()
+	OpenPool(size)
 }
 
 func DropPool() {
-	DropCtrlPool()
-	DropConnPool()
-}
-
-func ReInitPool(size uint) {
-	DropPool()
-	InitConnPool(size)
-	InitCtrlPool(size)
-}
-
-func ReInitPoolWithCtx(size uint, ctx context.Context) {
-	DropPool()
-	InitConnPoolWithCtx(size, ctx)
-	InitCtrlPoolWithCtx(size, ctx)
+	poolMu.Lock()
+	pool = new(Pool)
+	isPoolOpen = false
+	poolMu.Unlock()
 }

@@ -25,7 +25,7 @@ func DialTCP(addr string) (*TCPConn, error) {
 	return tcpConn, nil
 }
 
-func DialTCPCtrl(addr string, actor Actor) (TCPCtrlInterface, error) {
+func DialTCPCtrl(addr string, actor Actor) (*TCPCtrl, error) {
 	conn, err := getConn(addr)
 	if err != nil {
 		conn.Close()

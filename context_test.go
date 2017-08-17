@@ -15,7 +15,7 @@ func TestTCPConn_InstallCtx(t *testing.T) {
 	)
 	wg1.Add(1)
 
-	TCPChan := make(chan TCPCtrlInterface)
+	TCPChan := make(chan *TCPCtrl)
 
 	listener, err := NewTCPListener(Addr)
 	if err != nil {

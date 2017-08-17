@@ -2,150 +2,66 @@ package gtcp
 
 import (
 	"sync"
-	"context"
 	"net"
 )
 
-type ConnPool struct {
-	pool    chan *TCPConn
-	recycle chan *TCPConn
-	mu      sync.RWMutex
-	isInit  bool
-	isOpen  bool
-	Ctx     context.Context
-	Cancel  func()
-}
+var (
+	connP          ConnPool
+	connPMu        sync.RWMutex
+	isConnPoolOpen bool
+)
 
-var connP = new(ConnPool)
+type ConnPool chan *TCPConn
 
-func (p *ConnPool) InstallCtx(ctx context.Context) {
-	p.Ctx, p.Cancel = context.WithCancel(ctx)
-}
-
-func (p *ConnPool) reuse(conn *TCPConn) {
-	select {
-	case p.pool <- conn:
-	default:
-	}
-}
-
-func (p *ConnPool) ClearPool() {
-Circle:
-	for {
+func GetConnFromConnPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
+	if IsConnPoolOpen() {
 		select {
-		case conn := <-p.recycle:
-			conn.Clear()
-			p.reuse(conn)
-		case <-p.Ctx.Done():
-			break Circle
-		}
-	}
-}
-
-func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
-	if IsConnPoolInit() {
-		select {
-		case tcpConn = <-connP.pool:
+		case tcpConn = <-connP:
 			tcpConn.InstallNetConn(conn)
-			return tcpConn, ok
+			return tcpConn, true
 		default:
 		}
 	}
 	return
 }
 
-func SendConnToPool(conn *TCPConn) {
-	if IsConnPoolInit() {
+func SendConnToConnPool(conn *TCPConn) {
+	if IsConnPoolOpen() {
+		conn.Clear()
 		select {
-		case connP.recycle <- conn:
+		case connP <- conn:
 		default:
 		}
 	}
 }
 
-func (p *ConnPool) GetPool() <-chan *TCPConn {
-	return p.pool
-}
-
-func (p *ConnPool) GetRecycle() chan<- *TCPConn {
-	return p.recycle
-}
-
-func GetConnPool() *ConnPool {
+func GetConnPool() ConnPool {
 	return connP
 }
 
-func InitConnPool(size uint) {
-	if IsConnPoolInit() {
-		return
+func OpenConnPool(size uint) {
+	if !IsConnPoolOpen() {
+		connPMu.Lock()
+		connP = make(chan *TCPConn, size)
+		isConnPoolOpen = true
+		connPMu.Unlock()
 	}
-	connP.InstallCtx(context.Background())
-	connP.pool = make(chan *TCPConn, size)
-	connP.recycle = make(chan *TCPConn, size)
-	connP.mu.Lock()
-	connP.isInit = true
-	connP.mu.Unlock()
-}
-
-func InitConnPoolWithCtx(size uint, ctx context.Context) {
-	InitConnPool(size)
-	connP.InstallCtx(ctx)
-}
-
-func IsConnPoolInit() bool {
-	connP.mu.RLock()
-	defer connP.mu.RUnlock()
-	return connP.isInit
 }
 
 func IsConnPoolOpen() bool {
-	connP.mu.RLock()
-	defer connP.mu.RUnlock()
-	return connP.isOpen
+	connPMu.RLock()
+	defer connPMu.RUnlock()
+	return isConnPoolOpen
 }
 
-func OpenConnPool() {
-	if IsConnPoolOpen() {
-		return
-	}
-	connP.mu.Lock()
-	connP.isOpen = true
-	connP.mu.Unlock()
-	go connP.ClearPool()
-}
-
-func CloseConnPool() {
-	if IsConnPoolOpen() {
-		connP.mu.Lock()
-		connP.isOpen = false
-		connP.mu.Unlock()
-		connP.Cancel()
-	}
-}
-
-func ReopenConnPool() {
-	CloseConnPool()
-	connP.InstallCtx(context.Background())
-	go connP.ClearPool()
-}
-
-func ReopenConnPoolWithCtx(ctx context.Context) {
-	CloseConnPool()
-	connP.InstallCtx(ctx)
-	go connP.ClearPool()
+func ReopenConnPool(size uint) {
+	DropConnPool()
+	OpenConnPool(size)
 }
 
 func DropConnPool() {
-	CloseConnPool()
-	connP = new(ConnPool)
-}
-
-func ReInitConnPool(size uint) {
-	DropConnPool()
-	InitConnPool(size)
-}
-
-func ReInitConnPoolWithCtx(size uint, ctx context.Context) {
-	DropConnPool()
-	InitConnPoolWithCtx(size, ctx)
+	connPMu.Lock()
+	connP = make(ConnPool)
+	isConnPoolOpen = false
+	connPMu.Unlock()
 }

@@ -40,7 +40,7 @@ func (t *TCPCtrl) Close() error {
 
 func (t *TCPCtrl) InstallActor(actor Actor){
 	t.Close()
-	ctrlP.RecycleActor(t.Actor)
+	SendActorToPool(t.Actor)
 	t.Actor = actor
 }
 
