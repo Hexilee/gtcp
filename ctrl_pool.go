@@ -3,12 +3,12 @@ package gtcp
 import (
 	"sync"
 	"context"
-	"net"
 )
 
 type CtrlPool struct {
 	pool    chan *TCPCtrl
 	recycle chan *TCPCtrl
+	actors  chan Actor
 	mu      sync.RWMutex
 	isInit  bool
 	isOpen  bool
@@ -42,11 +42,11 @@ Circle:
 	}
 }
 
-func GetCtrlFromPool(conn *net.TCPConn) (tcpCtrl *TCPCtrl, ok bool) {
+func GetCtrlFromPool(actor Actor) (tcpCtrl *TCPCtrl, ok bool) {
 	if IsCtrlPoolInit() {
 		select {
 		case tcpCtrl = <-ctrlP.pool:
-			tcpCtrl.InstallNetConn(conn)
+			tcpCtrl.InstallActor(actor)
 			return tcpCtrl, ok
 		default:
 		}
@@ -69,6 +69,16 @@ func (p *CtrlPool) GetPool() <-chan *TCPCtrl {
 
 func (p *CtrlPool) GetRecycle() chan<- *TCPCtrl {
 	return p.recycle
+}
+
+func (p *CtrlPool) RecycleActor(actor Actor) {
+	if IsCtrlPoolInit() {
+		select {
+		case p.actors <- actor:
+		default:
+
+		}
+	}
 }
 
 func GetCtrlPool() *CtrlPool {
@@ -115,10 +125,12 @@ func OpenCtrlPool() {
 }
 
 func CloseCtrlPool() {
-	ctrlP.mu.Lock()
-	ctrlP.isOpen = false
-	ctrlP.mu.Unlock()
-	ctrlP.Cancel()
+	if IsCtrlPoolOpen() {
+		ctrlP.mu.Lock()
+		ctrlP.isOpen = false
+		ctrlP.mu.Unlock()
+		ctrlP.Cancel()
+	}
 }
 
 func ReopenCtrlPool() {
@@ -134,7 +146,7 @@ func ReopenCtrlPoolWithCtx(ctx context.Context) {
 }
 
 func DropCtrlPool() {
-	ctrlP.Cancel()
+	CloseCtrlPool()
 	ctrlP = new(CtrlPool)
 }
 

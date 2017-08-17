@@ -14,18 +14,33 @@ func NewTCPCtrl(actor Actor) *TCPCtrl {
 	return &TCPCtrl{Actor: actor}
 }
 
+func GetTCPCtrl (actor Actor) (*TCPCtrl){
+	tcpCtrl, ok := GetCtrlFromPool(actor)
+	if ok {
+		return tcpCtrl
+	}
+	return &TCPCtrl{Actor: actor}
+}
+
 type TCPCtrl struct {
 	Actor
 	OnceOnClose sync.Once
 }
 
+func (t *TCPCtrl) Clear() {
+	t.OnceOnClose = sync.Once{}
+}
+
 func (t *TCPCtrl) Close() error {
+	defer SendCtrlToPool(t)
 	t.OnceOnClose.Do(t.OnClose)
 	t.Actor.CloseOnce()
 	return nil
 }
 
-func (t *TCPCtrl) InstallActor(actor Actor) {
+func (t *TCPCtrl) InstallActor(actor Actor){
+	t.Close()
+	ctrlP.RecycleActor(t.Actor)
 	t.Actor = actor
 }
 

@@ -14,13 +14,13 @@ func doAllTest(t *testing.T) {
 }
 
 func TestConnPool(t *testing.T) {
-	InitConnPool(30)
+	InitPool(30)
 	doAllTest(t)
-	ReInitConnPool(100)
+	ReInitPool(100)
 	doAllTest(t)
-	ReInitConnPoolWithCtx(10000, context.Background())
+	ReInitPoolWithCtx(10000, context.Background())
 	doAllTest(t)
-	OpenConnPool()
+	OpenPool()
 	doAllTest(t)
 	ReopenConnPool()
 	doAllTest(t)
@@ -29,3 +29,9 @@ func TestConnPool(t *testing.T) {
 	CloseConnPool()
 	doAllTest(t)
 }
+
+//func TestHighPerformance(t *testing.T) {
+//	for i:=1; i<100; i++ {
+//		go TestConnPool(t)
+//	}
+//}

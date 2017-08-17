@@ -115,10 +115,12 @@ func OpenConnPool() {
 }
 
 func CloseConnPool() {
-	connP.mu.Lock()
-	connP.isOpen = false
-	connP.mu.Unlock()
-	connP.Cancel()
+	if IsConnPoolOpen() {
+		connP.mu.Lock()
+		connP.isOpen = false
+		connP.mu.Unlock()
+		connP.Cancel()
+	}
 }
 
 func ReopenConnPool() {
@@ -134,7 +136,7 @@ func ReopenConnPoolWithCtx(ctx context.Context) {
 }
 
 func DropConnPool() {
-	connP.Cancel()
+	CloseConnPool()
 	connP = new(ConnPool)
 }
 

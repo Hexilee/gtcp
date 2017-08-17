@@ -41,7 +41,7 @@ func (t *TCPListener) AcceptTCPCtrl(actor Actor) (TCPCtrlInterface, error) {
 		return nil, err
 	}
 	tcpConn := GetTCPConn(conn)
-	TCPCtrl := NewTCPCtrl(actor)
+	TCPCtrl := GetTCPCtrl(actor)
 	TCPCtrl.InstallTCPConn(tcpConn)
 	return TCPCtrl, err
 }
