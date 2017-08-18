@@ -3,12 +3,13 @@ package gtcp
 import (
 	"sync"
 	"net"
+	"sync/atomic"
 )
 
 var (
 	pool       = new(Pool)
 	poolMu     sync.RWMutex
-	isPoolOpen bool
+	isPoolOpen uint32
 )
 
 type Pool struct {
@@ -106,15 +107,15 @@ func OpenPool(size uint) {
 		pool.ctrls = make(chan *TCPCtrl, size)
 		pool.actors = make(chan Actor, size)
 		pool.conns = make(chan *TCPConn, size)
-		isPoolOpen = true
 		poolMu.Unlock()
+		atomic.StoreUint32(&isPoolOpen, 1)
 	}
 }
 
 func IsPoolOpen() bool {
 	poolMu.RLock()
 	defer poolMu.RUnlock()
-	return isPoolOpen
+	return atomic.LoadUint32(&isPoolOpen) != 0
 }
 
 func ReopenPool(size uint) {
@@ -125,6 +126,6 @@ func ReopenPool(size uint) {
 func DropPool() {
 	poolMu.Lock()
 	pool = new(Pool)
-	isPoolOpen = false
 	poolMu.Unlock()
+	atomic.StoreUint32(&isPoolOpen, 0)
 }

@@ -102,7 +102,7 @@ func TestTCPConnInterface(t *testing.T) {
 		resultBytes := client.ReadData()
 		assertEqual(t, string(resultBytes), testStr, "TCP data err (server -> client)")
 	}
-	server.Close()
+	server.CloseOnce()
 }
 
 func TestTCPConn(t *testing.T) {
