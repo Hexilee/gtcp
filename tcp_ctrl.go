@@ -1,7 +1,6 @@
 package gtcp
 
 import (
-	"sync"
 	"context"
 )
 
@@ -11,7 +10,7 @@ type TCPCtrlInterface interface {
 }
 
 func NewTCPCtrl(actor Actor) *TCPCtrl {
-	return &TCPCtrl{Actor: actor, OnceOnClose: new(sync.Once), mu: new(sync.RWMutex)}
+	return &TCPCtrl{Actor: actor}
 }
 
 func GetTCPCtrl(actor Actor) (*TCPCtrl) {
@@ -24,29 +23,33 @@ func GetTCPCtrl(actor Actor) (*TCPCtrl) {
 
 type TCPCtrl struct {
 	Actor
-	OnceOnClose *sync.Once
-	mu          *sync.RWMutex
 }
 
-func (t *TCPCtrl) Clear() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.OnceOnClose = new(sync.Once)
-}
+//func (t *TCPCtrl) Clear() {
+//	t.mu.Lock()
+//	defer t.mu.Unlock()
+//	t.OnceOnClose = new(sync.Once)
+//}
 
-func (t *TCPCtrl) Close() error {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+func (t *TCPCtrl) CloseOnce () {
 	defer SendCtrlToPool(t)
-	t.OnceOnClose.Do(t.OnClose)
-	t.Actor.CloseOnce()
-	return nil
+	err := t.OnClose()
+	for err!= nil {
+		err = t.OnError(err)
+	}
 }
+
+//func (t *TCPCtrl) Close() error {
+//	t.mu.RLock()
+//	defer t.mu.RUnlock()
+//	defer SendCtrlToPool(t)
+//	t.OnceOnClose.Do(t.OnClose)
+//	t.Actor.CloseOnce()
+//	return nil
+//}
 
 func (t *TCPCtrl) InstallActor(actor Actor) {
 	t.Close()
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	SendActorToPool(t.Actor)
 	t.Actor = actor
 }
@@ -61,7 +64,7 @@ func (t *TCPCtrl) StartWithCtx(ctx context.Context) {
 }
 
 func (t *TCPCtrl) Scan() {
-	defer t.Close()
+	defer t.CloseOnce()
 	err := t.OnConnect()
 	for err != nil {
 		err = t.OnError(err)

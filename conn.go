@@ -12,7 +12,6 @@ import (
 	"os"
 	"sync"
 	"time"
-	"sync/atomic"
 )
 
 const (
@@ -37,15 +36,14 @@ type TCPConnInterface interface {
 	GetDataChan() <-chan []byte
 	GetInfoChan() <-chan string
 	GetErrChan() <-chan error
-	Cancel()
 	Scan()
 	Start()
 	StartWithCtx(ctx context.Context)
 	Done() <-chan struct{}
-	IsScanning() bool
-	InstallNetConn(conn *net.TCPConn)
+	IsDone() bool
+	ReInstallNetConn(conn *net.TCPConn)
 	CloseOnce()
-	Clear()
+	//Clear()
 }
 
 type TCPBox interface {
@@ -57,14 +55,14 @@ type TCPBox interface {
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &TCPConn{
-		data:      make(chan []byte),
-		info:      make(chan string),
-		error:     make(chan error),
-		TCPConn:   conn,
-		mu:        new(sync.RWMutex),
-		OnceClose: new(sync.Once),
-		Context:   ctx,
-		cancel:    cancelFunc,
+		data:    make(chan []byte),
+		info:    make(chan string),
+		error:   make(chan error),
+		TCPConn: conn,
+		mu:      new(sync.RWMutex),
+		//OnceClose: new(sync.Once),
+		Context: ctx,
+		cancel:  cancelFunc,
 	}
 }
 
@@ -77,15 +75,15 @@ func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn) {
 }
 
 type TCPConn struct {
-	data       chan []byte
-	info       chan string
-	error      chan error
-	mu         *sync.RWMutex
-	OnceClose  *sync.Once
-	isScanning uint32
+	data  chan []byte
+	info  chan string
+	error chan error
+	mu    *sync.RWMutex
+	//OnceClose  *sync.Once
+	//isScanning uint32
 	*net.TCPConn
-	Context    context.Context
-	cancel     context.CancelFunc
+	Context context.Context
+	cancel  context.CancelFunc
 }
 
 func (t *TCPConn) Start() {
@@ -97,36 +95,48 @@ func (t *TCPConn) StartWithCtx(ctx context.Context) {
 	go t.Scan()
 }
 
-func (t *TCPConn) Clear() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.OnceClose = new(sync.Once)
-	atomic.StoreUint32(&t.isScanning, 0)
-	t.InstallCtx(context.Background())
-}
+//func (t *TCPConn) Clear() {
+//	//t.mu.Lock()
+//	//defer t.mu.Unlock()
+//	//t.OnceClose = new(sync.Once)
+//	//atomic.StoreUint32(&t.isScanning, 0)
+//	t.InstallCtx(context.Background())
+//}
 
 func (t *TCPConn) CloseOnce() {
-	t.OnceClose.Do(func() {
-		err := t.Close()
-		if err != nil {
-			t.error <- err
-		}
-	})
+	err := t.TCPConn.Close()
+	if err != nil {
+		t.error <- err
+	}
+	SendConnToPool(t)
 }
 
-func (t *TCPConn) InstallNetConn(conn *net.TCPConn) {
-	select {
-	case <-t.Done():
-	default:
-		t.Clear()
+func (t *TCPConn) ReInstallNetConn(conn *net.TCPConn) {
+	//select {
+	//case <-t.Done():
+	//default:
+	//	t.Clear()
+	//}
+	if !t.IsDone() {
+		panic(errors.New("Unclosed TCPConn Cannot reinstall conn!"))
 	}
 	t.TCPConn = conn
 }
 
-func (t *TCPConn) IsScanning() bool {
+func (t *TCPConn) Done() <- chan struct{} {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return atomic.LoadUint32(&t.isScanning) != 0
+	return t.Context.Done()
+}
+
+func (t *TCPConn) IsDone() bool {
+	done := t.Done()
+	select {
+	case <- done:
+		return true
+	default:
+		return false
+	}
 }
 
 func (t *TCPConn) Write(data []byte) (int, error) {
@@ -142,16 +152,18 @@ func (t *TCPConn) Write(data []byte) (int, error) {
 	return n - headerLen, nil
 }
 
-func (t *TCPConn) Cancel() {
+func (t *TCPConn) Close() error {
 	t.cancel()
-}
-
-func (t *TCPConn) Done() <-chan struct{} {
-	return t.Context.Done()
+	return nil
 }
 
 func (t *TCPConn) InstallCtx(ctx context.Context) {
+	if t.cancel != nil {
+		t.cancel()
+	}
+	t.mu.Lock()
 	t.Context, t.cancel = context.WithCancel(ctx)
+	t.mu.Unlock()
 }
 
 func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err error) {
@@ -160,7 +172,7 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 		return 0, nil, nil
 	}
 	if length > 1048576 { //1024*1024=1048576
-		t.Cancel()
+		t.Close()
 		return 0, nil, errors.New(fmt.Sprintf("Read Error. Addr: %s; Err: too large data!", t.RemoteAddr().String()))
 	}
 	var lhead uint32
@@ -169,7 +181,7 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 
 	tail := length - headerLen
 	if lhead > 1048576 {
-		t.Cancel()
+		t.Close()
 		return 0, nil, errors.New(fmt.Sprintf("Read Error. Addr: %s; Err: too large data!", t.RemoteAddr().String()))
 	}
 	if uint32(tail) < lhead {
@@ -184,7 +196,6 @@ func (t *TCPConn) Scan() {
 	defer t.CloseOnce()
 	scanner := bufio.NewScanner(t)
 	scanner.Split(t.split)
-	atomic.StoreUint32(&t.isScanning, 1)
 
 Circle:
 	for scanner.Scan() {
@@ -203,22 +214,6 @@ Circle:
 	if err := scanner.Err(); err != nil {
 		t.error <- err
 	}
-}
-
-func (t *TCPConn) Close() error {
-	defer SendConnToPool(t)
-
-	select {
-	case <-t.Done():
-		return errors.New("TCPCtrl has already closed")
-	default:
-	}
-
-	t.Cancel()
-	if t.IsScanning() {
-		atomic.StoreUint32(&t.isScanning, 0)
-	}
-	return t.TCPConn.Close()
 }
 
 func (t *TCPConn) ReadData() []byte {

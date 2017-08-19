@@ -4,7 +4,6 @@ import (
 	"sync"
 	"testing"
 	"fmt"
-	"io"
 )
 
 type ActorTestType struct {
@@ -26,18 +25,20 @@ func (s *ActorTestType) OnMessage(data []byte) error {
 	return nil
 }
 
-func (s *ActorTestType) OnClose() {
+func (s *ActorTestType) OnClose() error {
 	for n, data := range testChanData {
 		assertEqual(s.T, AddHeader([]byte(data)), s.Data[n], "Test TCP Type Err")
 	}
 	s.Wg1.Done()
+	return nil
 }
 
 func (s *ActorTestType) OnError(err error) error {
 	fmt.Println(err)
-	if err != io.EOF {
-		s.CloseOnce()
-	}
+	//if err == io.EOF {
+	//	s.CloseOnce()
+	//}
+	s.Close()
 	return nil
 }
 
@@ -94,6 +95,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 }
 
 func TestTCPCtrlInterface_Client(t *testing.T) {
+	OpenPool(30)
 	var (
 		wg1 sync.WaitGroup
 		wg2 sync.WaitGroup

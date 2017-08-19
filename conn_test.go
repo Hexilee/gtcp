@@ -48,7 +48,6 @@ func AddHeader(data []byte) string {
 }
 
 func TestTCPConnInterface(t *testing.T) {
-	OpenConnPool(30)
 	TCPChan := make(chan TCPConnInterface)
 
 	listener, err := NewTCPListener(Addr)

@@ -4,8 +4,8 @@ type Actor interface {
 	TCPBox
 	OnConnect() error
 	OnMessage(data []byte) error
-	OnError(err error) error
-	OnClose()
+	OnError(err error) error //
+	OnClose() error
 }
 
 type ActorType struct {
@@ -13,9 +13,10 @@ type ActorType struct {
 }
 
 func (a *ActorType) ReInstallTCPConn(conn *TCPConn) {
-	if a.IsScanning() {
-		a.CloseOnce()
-	}
+	//if a.IsScanning() {
+	//	a.CloseOnce()
+	//}
+	a.Close()
 	SendConnToPool(a.TCPConn)
 	a.TCPConn = conn
 }

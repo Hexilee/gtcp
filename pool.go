@@ -4,6 +4,8 @@ import (
 	"sync"
 	"net"
 	"sync/atomic"
+	//"time"
+	//"errors"
 )
 
 var (
@@ -44,10 +46,10 @@ func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
 	if IsPoolOpen() || IsConnPoolOpen() {
 		select {
 		case tcpConn = <-pool.conns:
-			tcpConn.InstallNetConn(conn)
+			tcpConn.ReInstallNetConn(conn)
 			ok = true
 		case tcpConn = <-connP:
-			tcpConn.InstallNetConn(conn)
+			tcpConn.ReInstallNetConn(conn)
 			ok = true
 		default:
 		}
@@ -57,7 +59,6 @@ func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
 
 func SendCtrlToPool(ctrl *TCPCtrl) {
 	if IsPoolOpen() {
-		ctrl.Clear()
 		select {
 		case pool.ctrls <- ctrl:
 		default:
@@ -76,11 +77,18 @@ func SendActorToPool(actor Actor) {
 
 func SendConnToPool(conn *TCPConn) {
 	if IsPoolOpen() || IsConnPoolOpen() {
-		conn.Clear()
+		if !conn.IsDone() {
+			conn.Close()
+		}
 		select {
-		case pool.conns <- conn:
-		case connP <- conn:
-		default:
+		//case <- time.After(1):
+		//	panic(errors.New("Cannot send unclosed TCPConn to pool"))
+		case <-conn.Done():
+			select {
+			case pool.conns <- conn:
+			case connP <- conn:
+			default:
+			}
 		}
 	}
 }
