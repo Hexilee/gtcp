@@ -7,7 +7,7 @@ import (
 )
 
 func TestTCPConn_InstallCtx(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ := context.WithCancel(context.Background())
 
 	var (
 		wg1 sync.WaitGroup
@@ -50,6 +50,6 @@ func TestTCPConn_InstallCtx(t *testing.T) {
 		wg2.Add(1)
 	}
 	wg2.Wait()
-	cancel()
+	//cancel()
 	wg1.Wait()
 }

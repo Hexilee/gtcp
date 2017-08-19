@@ -125,7 +125,7 @@ func ReopenPool(size uint) {
 
 func DropPool() {
 	poolMu.Lock()
+	defer poolMu.Unlock()
 	pool = new(Pool)
-	poolMu.Unlock()
 	atomic.StoreUint32(&isPoolOpen, 0)
 }

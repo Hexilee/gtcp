@@ -13,6 +13,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"sync/atomic"
 )
 
 const (
@@ -58,16 +59,18 @@ type TCPBox interface {
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &TCPConn{
-		data:    make(chan []byte),
-		info:    make(chan string),
-		error:   make(chan error),
-		TCPConn: conn,
-		Context: ctx,
-		cancel:  cancelFunc,
+		data:      make(chan []byte),
+		info:      make(chan string),
+		error:     make(chan error),
+		TCPConn:   conn,
+		mu:        new(sync.RWMutex),
+		OnceClose: new(sync.Once),
+		Context:   ctx,
+		cancel:    cancelFunc,
 	}
 }
 
-func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn){
+func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn) {
 	tcpConn, ok := GetConnFromPool(conn)
 	if !ok {
 		tcpConn = NewTCPConn(conn)
@@ -79,15 +82,15 @@ type TCPConn struct {
 	data       chan []byte
 	info       chan string
 	error      chan error
-	mu         sync.RWMutex
-	OnceClose  sync.Once
-	isScanning bool
+	mu         *sync.RWMutex
+	OnceClose  *sync.Once
+	isScanning uint32
 	*net.TCPConn
 	Context    context.Context
 	cancel     context.CancelFunc
 }
 
-func (t *TCPConn) Start () {
+func (t *TCPConn) Start() {
 	go t.Scan()
 }
 
@@ -98,16 +101,16 @@ func (t *TCPConn) StartWithCtx(ctx context.Context) {
 
 func (t *TCPConn) Clear() {
 	t.mu.Lock()
-	t.OnceClose = sync.Once{}
-	t.isScanning = false
+	defer t.mu.Unlock()
+	t.OnceClose = new(sync.Once)
+	atomic.StoreUint32(&t.isScanning, 0)
 	t.InstallCtx(context.Background())
-	t.mu.Unlock()
 }
 
 func (t *TCPConn) CloseOnce() {
 	t.OnceClose.Do(func() {
 		err := t.Close()
-		if err!= nil {
+		if err != nil {
 			t.error <- err
 		}
 	})
@@ -115,7 +118,7 @@ func (t *TCPConn) CloseOnce() {
 
 func (t *TCPConn) InstallNetConn(conn *net.TCPConn) {
 	select {
-	case <- t.Done():
+	case <-t.Done():
 	default:
 		t.Clear()
 	}
@@ -125,14 +128,8 @@ func (t *TCPConn) InstallNetConn(conn *net.TCPConn) {
 func (t *TCPConn) IsScanning() bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.isScanning
+	return atomic.LoadUint32(&t.isScanning) != 0
 }
-
-//func (t *TCPConn) IsClosed() bool {
-//	t.mu.RLock()
-//	defer t.mu.RUnlock()
-//	return t.isClosed
-//}
 
 func (t *TCPConn) Write(data []byte) (int, error) {
 	length := uint32(len(data))
@@ -189,12 +186,9 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 
 func (t *TCPConn) Scan() {
 	defer t.CloseOnce()
-	t.mu.Lock()
-	t.isScanning = true
-	t.mu.Unlock()
-
 	scanner := bufio.NewScanner(t)
 	scanner.Split(t.split)
+	atomic.StoreUint32(&t.isScanning, 1)
 
 Circle:
 	for scanner.Scan() {
@@ -226,10 +220,7 @@ func (t *TCPConn) Close() error {
 
 	t.Cancel()
 	if t.IsScanning() {
-		t.mu.Lock()
-		t.isScanning = false
-		t.mu.Unlock()
-
+		atomic.StoreUint32(&t.isScanning, 0)
 	}
 	return t.TCPConn.Close()
 }
