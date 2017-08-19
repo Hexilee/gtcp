@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"syscall"
 	"time"
 	"sync/atomic"
 )
@@ -34,7 +33,6 @@ type TCPConnInterface interface {
 	SetNoDelay(noDelay bool) error
 	SetReadBuffer(bytes int) error
 	SetWriteBuffer(bytes int) error
-	SyscallConn() (syscall.RawConn, error)
 	InstallCtx(ctx context.Context)
 	GetDataChan() <-chan []byte
 	GetInfoChan() <-chan string

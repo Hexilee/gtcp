@@ -12,6 +12,6 @@ go:
   - 1.8.3
 
 script: # 集成脚本
-  - go test -v
+  - go test -v -cover
 
 
