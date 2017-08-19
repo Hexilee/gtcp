@@ -151,9 +151,7 @@ func (t *TCPConn) Done() <-chan struct{} {
 }
 
 func (t *TCPConn) InstallCtx(ctx context.Context) {
-	newCtx, cancelFunc := context.WithCancel(ctx)
-	t.Context = newCtx
-	t.cancel = cancelFunc
+	t.Context, t.cancel = context.WithCancel(ctx)
 }
 
 func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err error) {
