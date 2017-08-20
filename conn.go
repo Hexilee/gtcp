@@ -43,13 +43,11 @@ type TCPConnInterface interface {
 	IsDone() bool
 	ReInstallNetConn(conn *net.TCPConn)
 	CloseOnce()
-	//Clear()
 }
 
 type TCPBox interface {
 	TCPConnInterface
 	InstallTCPConn(conn *TCPConn)
-	//ReInstallTCPConn(conn *TCPConn)
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -60,7 +58,6 @@ func NewTCPConn(conn *net.TCPConn) *TCPConn {
 		error:   make(chan error),
 		TCPConn: conn,
 		mu:      new(sync.RWMutex),
-		//OnceClose: new(sync.Once),
 		Context: ctx,
 		cancel:  cancelFunc,
 	}
@@ -79,8 +76,6 @@ type TCPConn struct {
 	info  chan string
 	error chan error
 	mu    *sync.RWMutex
-	//OnceClose  *sync.Once
-	//isScanning uint32
 	*net.TCPConn
 	Context context.Context
 	cancel  context.CancelFunc
@@ -96,14 +91,6 @@ func (t *TCPConn) StartWithCtx(ctx context.Context) {
 	go t.Scan()
 }
 
-//func (t *TCPConn) Clear() {
-//	//t.mu.Lock()
-//	//defer t.mu.Unlock()
-//	//t.OnceClose = new(sync.Once)
-//	//atomic.StoreUint32(&t.isScanning, 0)
-//	t.InstallCtx(context.Background())
-//}
-
 func (t *TCPConn) CloseOnce() {
 	t.Close()
 	err := t.TCPConn.Close()
@@ -114,11 +101,6 @@ func (t *TCPConn) CloseOnce() {
 }
 
 func (t *TCPConn) ReInstallNetConn(conn *net.TCPConn) {
-	//select {
-	//case <-t.Done():
-	//default:
-	//	t.Clear()
-	//}
 	if !t.IsDone() {
 		panic(errors.New("Unclosed TCPConn Cannot reinstall conn!"))
 	}

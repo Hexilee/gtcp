@@ -3,6 +3,7 @@ package gtcp
 import (
 	"testing"
 	"time"
+	"sync"
 )
 
 func doAllTest(t *testing.T) {
@@ -14,27 +15,19 @@ func doAllTest(t *testing.T) {
 }
 
 func TestConnPool(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
 		select {
-		case <- time.After(1 * time.Second):
-			t.Error("There is no tcpconn in pool.conns")
-		case <- pool.GetConns():
+		case <-time.After(1 * time.Second):
+			t.Error("Pool is not open")
+		case <-pool.GetConns():
+		case <-pool.GetActors():
+		case <-pool.GetCtrls():
+		case <-GetConnPool():
 		}
-		select {
-		case <- time.After(1 * time.Second):
-			t.Error("There is no actor in pool.actors")
-		case <- pool.GetActors():
-		}
-		select {
-		case <- time.After(1 * time.Second):
-			t.Error("There is no tcpconn in pool.ctrls")
-		case <- pool.GetCtrls():
-		}
-		select {
-		case <- time.After(1 * time.Second):
-			t.Error("There is no tcpconn in ConnPool")
-		case <- GetConnPool():
-		}
+		wg.Done()
 	}()
 	OpenPool(30)
 	doAllTest(t)
@@ -43,7 +36,16 @@ func TestConnPool(t *testing.T) {
 	OpenConnPool(1000)
 	doAllTest(t)
 	ReopenConnPool(2000)
-	for i := 0; i<=50;i++ {
-		doAllTest(t)
+	doAllTest(t)
+	DropPool()
+	doAllTest(t)
+	DropConnPool()
+	doAllTest(t)
+	wg.Wait()
+}
+
+func TestMultiWork(t *testing.T) {
+	for i := 0; i <= 50; i++ {
+		TestConnPool(t)
 	}
 }

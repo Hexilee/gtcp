@@ -1,15 +1,12 @@
 package gtcp
 
 import (
-	//"sync"
 	"testing"
 	"fmt"
 )
 
 type ActorTestType struct {
 	ActorType
-	////Wg1  *sync.WaitGroup
-	////Wg2  *sync.WaitGroup
 	T    *testing.T
 	Data []string
 }
@@ -21,7 +18,6 @@ func (s *ActorTestType) OnConnect() error {
 
 func (s *ActorTestType) OnMessage(data []byte) error {
 	s.Data = append(s.Data, string(data))
-	////s.Wg2.Done()
 	return nil
 }
 
@@ -29,26 +25,16 @@ func (s *ActorTestType) OnClose() error {
 	for n, data := range s.Data {
 		assertEqual(s.T, AddHeader([]byte(testChanData[n])), data, "Test TCP Type Err")
 	}
-	////s.Wg1.Done()
 	return nil
 }
 
 func (s *ActorTestType) OnError(err error) error {
 	fmt.Println(err)
-	//if err == io.EOF {
-	//	s.CloseOnce()
-	//}
 	s.Close()
 	return nil
 }
 
 func TestTCPCtrlInterface_Server(t *testing.T) {
-	//var (
-	////	wg1 sync.WaitGroup
-	////	wg2 sync.WaitGroup
-	//)
-	////wg1.Add(1)
-
 	TCPChan := make(chan *TCPCtrl)
 
 	listener, err := NewTCPListener(Addr)
@@ -59,8 +45,6 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 
 	go func() {
 		actorTestType := &ActorTestType{
-			//Wg1:  &wg1,
-			//Wg2:  &wg2,
 			T:    t,
 			Data: make([]string, 0),
 		}
@@ -87,17 +71,12 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 
 	for _, testStr := range testChanData {
 		_, _ = client.Write([]byte(testStr))
-		//wg2.Add(1)
 	}
-	//wg2.Wait()
 	server.Close()
-	//wg1.Wait()
 }
 
 func TestTCPCtrlInterface_Client(t *testing.T) {
 	var (
-		//wg1 sync.WaitGroup
-		//wg2 sync.WaitGroup
 	)
 
 	TCPChan := make(chan *TCPConn)
@@ -117,10 +96,7 @@ func TestTCPCtrlInterface_Client(t *testing.T) {
 		TCPChan <- tcpConn
 	}()
 
-	//wg1.Add(1)
 	actorTestType := &ActorTestType{
-		//Wg1:  &wg1,
-		//Wg2:  &wg2,
 		T:    t,
 		Data: make([]string, 0),
 	}
@@ -134,10 +110,7 @@ func TestTCPCtrlInterface_Client(t *testing.T) {
 		assertEqual(t, testChanData[0], server.ReadString(), "conn onConnect write err (client)")
 		for _, testStr := range testChanData {
 			_, _ = server.Write([]byte(testStr))
-			//wg2.Add(1)
 		}
 	}
-	//wg2.Wait()
 	client.Close()
-	//wg1.Wait()
 }
