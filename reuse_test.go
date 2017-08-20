@@ -14,9 +14,9 @@ func doAllTest(t *testing.T) {
 
 func TestConnPool(t *testing.T) {
 	//OpenConnPool(30)
-	//doAllTest(t)
-	//ReopenConnPool(100)
-	//doAllTest(t)
+	doAllTest(t)
+	ReopenPool(100)
+	doAllTest(t)
 }
 
 //func TestHighPerformance(t *testing.T) {

@@ -49,7 +49,7 @@ type TCPConnInterface interface {
 type TCPBox interface {
 	TCPConnInterface
 	InstallTCPConn(conn *TCPConn)
-	ReInstallTCPConn(conn *TCPConn)
+	//ReInstallTCPConn(conn *TCPConn)
 }
 
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
@@ -108,7 +108,7 @@ func (t *TCPConn) CloseOnce() {
 	if err != nil {
 		t.error <- err
 	}
-	SendConnToPool(t)
+	//SendConnToPool(t)
 }
 
 func (t *TCPConn) ReInstallNetConn(conn *net.TCPConn) {

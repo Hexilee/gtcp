@@ -12,14 +12,18 @@ type ActorType struct {
 	*TCPConn
 }
 
-func (a *ActorType) ReInstallTCPConn(conn *TCPConn) {
-	//if a.IsScanning() {
-	//	a.CloseOnce()
-	//}
-	a.Close()
-	SendConnToPool(a.TCPConn)
-	a.TCPConn = conn
-}
+//func (a *ActorType) ReInstallTCPConn(conn *TCPConn) {
+//	//if a.IsScanning() {
+//	//	a.CloseOnce()
+//	//}
+//	//a.Close()
+//	if a.Context != nil {
+//		if a.IsDone() {
+//			SendConnToPool(a.TCPConn)
+//		}
+//	}
+//	a.TCPConn = conn
+//}
 
 func (a *ActorType) InstallTCPConn(conn *TCPConn) {
 	a.TCPConn = conn

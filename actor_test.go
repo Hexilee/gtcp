@@ -95,7 +95,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 }
 
 func TestTCPCtrlInterface_Client(t *testing.T) {
-	//OpenConnPool(30)
+	OpenPool(30)
 	var (
 		wg1 sync.WaitGroup
 		wg2 sync.WaitGroup
