@@ -1,8 +1,8 @@
 package gtcp
 
 import (
-	"testing"
 	"context"
+	"testing"
 )
 
 func TestTCPConn_InstallCtx(t *testing.T) {

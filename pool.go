@@ -1,8 +1,8 @@
 package gtcp
 
 import (
-	"sync"
 	"net"
+	"sync"
 	"sync/atomic"
 )
 
@@ -12,12 +12,15 @@ var (
 	isPoolOpen uint32
 )
 
+// Pool Container
+// Contain TCPCtrl pool, Actor pool and TCPConn pool
 type Pool struct {
 	ctrls  chan *TCPCtrl
 	actors chan Actor
 	conns  chan *TCPConn
 }
 
+// Get a TCPCtrl pointer from pool
 func GetCtrlFromPool(actor Actor) (tcpCtrl *TCPCtrl, ok bool) {
 	if IsPoolOpen() {
 		select {
@@ -30,6 +33,7 @@ func GetCtrlFromPool(actor Actor) (tcpCtrl *TCPCtrl, ok bool) {
 	return
 }
 
+// Get an Actor pointer from pool
 func GetActorFromPool() (actor Actor, ok bool) {
 	if IsPoolOpen() {
 		select {
@@ -40,6 +44,7 @@ func GetActorFromPool() (actor Actor, ok bool) {
 	return
 }
 
+// Get a TCPConn pointer from pool
 func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
 	if IsPoolOpen() || IsConnPoolOpen() {
 		select {
@@ -55,6 +60,7 @@ func GetConnFromPool(conn *net.TCPConn) (tcpConn *TCPConn, ok bool) {
 	return
 }
 
+// Send a TCPCtrl pointer to pool
 func SendCtrlToPool(ctrl *TCPCtrl) {
 	if IsPoolOpen() {
 		select {
@@ -64,6 +70,7 @@ func SendCtrlToPool(ctrl *TCPCtrl) {
 	}
 }
 
+// Send an Actor pointer to pool
 func SendActorToPool(actor Actor) {
 	if IsPoolOpen() {
 		select {
@@ -73,6 +80,7 @@ func SendActorToPool(actor Actor) {
 	}
 }
 
+// Send a TCPConn pointer to pool
 func SendConnToPool(conn *TCPConn) {
 	if IsPoolOpen() || IsConnPoolOpen() {
 		select {
@@ -87,22 +95,27 @@ func SendConnToPool(conn *TCPConn) {
 	}
 }
 
+// Get TCPCtrl pool instance
 func (p *Pool) GetCtrls() <-chan *TCPCtrl {
 	return p.ctrls
 }
 
+// Get Actor pool instance
 func (p *Pool) GetActors() <-chan Actor {
 	return p.actors
 }
 
+// Get TCPConn pool instance
 func (p *Pool) GetConns() <-chan *TCPConn {
 	return p.conns
 }
 
+// Get pool container
 func GetPool() *Pool {
 	return pool
 }
 
+// receive size and open pool
 func OpenPool(size uint) {
 	if !IsPoolOpen() {
 		poolMu.Lock()
@@ -114,17 +127,20 @@ func OpenPool(size uint) {
 	}
 }
 
+// return true if container is open else false
 func IsPoolOpen() bool {
 	poolMu.RLock()
 	defer poolMu.RUnlock()
 	return atomic.LoadUint32(&isPoolOpen) != 0
 }
 
+// reopen container
 func ReopenPool(size uint) {
 	DropPool()
 	OpenPool(size)
 }
 
+// drop container
 func DropPool() {
 	poolMu.Lock()
 	defer poolMu.Unlock()

@@ -4,16 +4,20 @@ import (
 	"context"
 )
 
+// All TCPCtrl Type should implement TCPCtrlInterface
 type TCPCtrlInterface interface {
 	TCPBox
 	InstallActor(actor Actor)
 }
 
+// Get a new TCPCtrl
 func NewTCPCtrl(actor Actor) *TCPCtrl {
 	return &TCPCtrl{Actor: actor}
 }
 
-func GetTCPCtrl(actor Actor) (*TCPCtrl) {
+// if Pool is open, and there are some TCPCtrl in it, get a TCPCtrl pointer from it
+// else return a new TCPCtrl
+func GetTCPCtrl(actor Actor) *TCPCtrl {
 	tcpCtrl, ok := GetCtrlFromPool(actor)
 	if ok {
 		return tcpCtrl
@@ -21,33 +25,40 @@ func GetTCPCtrl(actor Actor) (*TCPCtrl) {
 	return NewTCPCtrl(actor)
 }
 
+// TCPCtrl struct
 type TCPCtrl struct {
 	Actor
 }
 
-func (t *TCPCtrl) CloseOnce () {
+// Executed only once in a life cycle
+func (t *TCPCtrl) CloseOnce() {
 	defer SendCtrlToPool(t)
 	err := t.OnClose()
-	for err!= nil {
+	for err != nil {
 		err = t.OnError(err)
 	}
 }
 
+// Replace embedded actor
 func (t *TCPCtrl) InstallActor(actor Actor) {
 	t.Close()
 	SendActorToPool(t.Actor)
 	t.Actor = actor
 }
 
+// Go Scan
 func (t *TCPCtrl) Start() {
+	t.InstallCtx(context.Background())
 	go t.Scan()
 }
 
+// Go Scan with father ctx
 func (t *TCPCtrl) StartWithCtx(ctx context.Context) {
 	t.InstallCtx(ctx)
 	go t.Scan()
 }
 
+// Get data from TCPConn and execute OnConnect, OnMessage, OnError and OnClose event function.
 func (t *TCPCtrl) Scan() {
 	defer t.CloseOnce()
 	err := t.OnConnect()

@@ -11,14 +11,17 @@ var (
 	isConnPoolOpen uint32
 )
 
+// TCPConn pool
 type ConnPool chan *TCPConn
 
+// Get conn pool instance
 func GetConnPool() ConnPool {
 	connMu.RLock()
 	defer connMu.RUnlock()
 	return connP
 }
 
+// Receive size to Open TCPConn pool
 func OpenConnPool(size uint) {
 	if !IsConnPoolOpen() {
 		connMu.Lock()
@@ -28,15 +31,18 @@ func OpenConnPool(size uint) {
 	}
 }
 
+// Return true if TCPConn is open else false
 func IsConnPoolOpen() bool {
 	return atomic.LoadUint32(&isConnPoolOpen) != 0
 }
 
+// Reopen TCPConn
 func ReopenConnPool(size uint) {
 	DropConnPool()
 	OpenConnPool(size)
 }
 
+// Drop TCPConn
 func DropConnPool() {
 	connMu.Lock()
 	connP = nil

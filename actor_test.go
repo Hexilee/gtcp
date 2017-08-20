@@ -1,8 +1,8 @@
 package gtcp
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 type ActorTestType struct {
@@ -76,8 +76,7 @@ func TestTCPCtrlInterface_Server(t *testing.T) {
 }
 
 func TestTCPCtrlInterface_Client(t *testing.T) {
-	var (
-	)
+	var ()
 
 	TCPChan := make(chan *TCPConn)
 

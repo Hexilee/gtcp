@@ -14,6 +14,7 @@ func getConn(addr string) (*net.TCPConn, error) {
 	return conn, nil
 }
 
+// Dial an address and return a TCPConn, maybe something wrong and return a err.
 func DialTCP(addr string) (*TCPConn, error) {
 
 	conn, err := getConn(addr)
@@ -25,6 +26,7 @@ func DialTCP(addr string) (*TCPConn, error) {
 	return tcpConn, nil
 }
 
+// Dial an address and return a TCPCtrl, maybe something wrong and return err.
 func DialTCPCtrl(addr string, actor Actor) (*TCPCtrl, error) {
 	conn, err := getConn(addr)
 	if err != nil {

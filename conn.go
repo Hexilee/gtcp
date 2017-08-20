@@ -18,6 +18,7 @@ const (
 	headerLen = 4
 )
 
+// All TCPConn Type should implement TCPConnInterface
 type TCPConnInterface interface {
 	net.Conn
 	ReadData() []byte
@@ -45,24 +46,28 @@ type TCPConnInterface interface {
 	CloseOnce()
 }
 
+// All struct with a TCPConn-Type member should implement TCPBox Interface
 type TCPBox interface {
 	TCPConnInterface
 	InstallTCPConn(conn *TCPConn)
 }
 
+// initial a new TCPConn and return its pointer
 func NewTCPConn(conn *net.TCPConn) *TCPConn {
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	//ctx, cancelFunc := context.WithCancel(context.Background())
 	return &TCPConn{
 		data:    make(chan []byte),
 		info:    make(chan string),
 		error:   make(chan error),
 		TCPConn: conn,
 		mu:      new(sync.RWMutex),
-		Context: ctx,
-		cancel:  cancelFunc,
+		//Context: ctx,
+		//cancel:  cancelFunc,
 	}
 }
 
+// if Pool or ConnPool is open, and there are some TCPConn in them, get a TCPConn pointer from it
+// else return a new TCPConn
 func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn) {
 	tcpConn, ok := GetConnFromPool(conn)
 	if !ok {
@@ -71,6 +76,8 @@ func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn) {
 	return
 }
 
+// A box for net.TCPConn
+// with data chan, info chan, error chan, ctx and cancel function.
 type TCPConn struct {
 	data  chan []byte
 	info  chan string
@@ -81,16 +88,19 @@ type TCPConn struct {
 	cancel  context.CancelFunc
 }
 
+// Go Scan
 func (t *TCPConn) Start() {
 	t.InstallCtx(context.Background())
 	go t.Scan()
 }
 
+// Go Scan with father ctx
 func (t *TCPConn) StartWithCtx(ctx context.Context) {
 	t.InstallCtx(ctx)
 	go t.Scan()
 }
 
+// Executed only once in a life cycle
 func (t *TCPConn) CloseOnce() {
 	t.Close()
 	err := t.TCPConn.Close()
@@ -100,6 +110,7 @@ func (t *TCPConn) CloseOnce() {
 	SendConnToPool(t)
 }
 
+// Replace the net.TCPConn when TCPConn is recycled.
 func (t *TCPConn) ReInstallNetConn(conn *net.TCPConn) {
 	if !t.IsDone() {
 		panic(errors.New("Unclosed TCPConn Cannot reinstall conn!"))
@@ -107,22 +118,26 @@ func (t *TCPConn) ReInstallNetConn(conn *net.TCPConn) {
 	t.TCPConn = conn
 }
 
-func (t *TCPConn) Done() <- chan struct{} {
+// Return t.Ctx.Done()
+func (t *TCPConn) Done() <-chan struct{} {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.Context.Done()
 }
 
+// return true if TCPConn is closed, else false.
 func (t *TCPConn) IsDone() bool {
 	done := t.Done()
 	select {
-	case <- done:
+	case <-done:
 		return true
 	default:
 		return false
 	}
 }
 
+// Get len of data and add it at the header of data by 4 bytes.
+// then execute t.TCPConn.Write(data)
 func (t *TCPConn) Write(data []byte) (int, error) {
 	length := uint32(len(data))
 	head := make([]byte, 4)
@@ -136,11 +151,13 @@ func (t *TCPConn) Write(data []byte) (int, error) {
 	return n - headerLen, nil
 }
 
+// Close TCPConn
 func (t *TCPConn) Close() error {
 	t.cancel()
 	return nil
 }
 
+// receive a father ctx and get son WithCancel as ctx, cancel of TCPConn
 func (t *TCPConn) InstallCtx(ctx context.Context) {
 	if t.cancel != nil {
 		t.cancel()
@@ -150,6 +167,7 @@ func (t *TCPConn) InstallCtx(ctx context.Context) {
 	t.mu.Unlock()
 }
 
+// extract payload from TCP streams
 func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err error) {
 	length := len(data)
 	if length < headerLen {
@@ -176,6 +194,8 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 	return adv, token, nil
 }
 
+// start to extract payload
+// stop when TCPConn is closed or net.TCPConn is closed
 func (t *TCPConn) Scan() {
 	defer t.CloseOnce()
 	scanner := bufio.NewScanner(t)
@@ -200,6 +220,7 @@ Circle:
 	}
 }
 
+// Get data without four-bytes header
 func (t *TCPConn) ReadData() []byte {
 	select {
 	case data := <-t.data:
@@ -207,6 +228,7 @@ func (t *TCPConn) ReadData() []byte {
 	}
 }
 
+// Get string data
 func (t *TCPConn) ReadString() string {
 	select {
 	case data := <-t.data:
@@ -214,14 +236,17 @@ func (t *TCPConn) ReadString() string {
 	}
 }
 
+// Get data chan
 func (t *TCPConn) GetDataChan() <-chan []byte {
 	return t.data
 }
 
+// Get info chan
 func (t *TCPConn) GetInfoChan() <-chan string {
 	return t.info
 }
 
+// Get error chan
 func (t *TCPConn) GetErrChan() <-chan error {
 	return t.error
 }

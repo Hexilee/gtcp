@@ -1,9 +1,9 @@
 package gtcp
 
 import (
+	"sync"
 	"testing"
 	"time"
-	"sync"
 )
 
 func doAllTest(t *testing.T) {
@@ -43,3 +43,9 @@ func TestConnPool(t *testing.T) {
 	doAllTest(t)
 	wg.Wait()
 }
+
+//func TestMulti(t *testing.T) {
+//	for i:=1; i<= 50; i++ {
+//		TestConnPool(t)
+//	}
+//}
