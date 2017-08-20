@@ -1,7 +1,7 @@
 package gtcp
 
 import (
-	"sync"
+	//"sync"
 	"testing"
 	"context"
 )
@@ -10,10 +10,10 @@ func TestTCPConn_InstallCtx(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var (
-		wg1 sync.WaitGroup
-		wg2 sync.WaitGroup
+		//wg1 sync.WaitGroup
+		//wg2 sync.WaitGroup
 	)
-	wg1.Add(1)
+	//wg1.Add(1)
 
 	TCPChan := make(chan *TCPCtrl)
 
@@ -25,8 +25,8 @@ func TestTCPConn_InstallCtx(t *testing.T) {
 
 	go func() {
 		actorTestType := &ActorTestType{
-			Wg1:  &wg1,
-			Wg2:  &wg2,
+			//Wg1:  &wg1,
+			//Wg2:  &wg2,
 			T:    t,
 			Data: make([]string, 0),
 		}
@@ -47,9 +47,9 @@ func TestTCPConn_InstallCtx(t *testing.T) {
 
 	for _, testStr := range testChanData {
 		_, _ = client.Write([]byte(testStr))
-		wg2.Add(1)
+		//wg2.Add(1)
 	}
-	wg2.Wait()
+	//wg2.Wait()
 	cancel()
-	wg1.Wait()
+	//wg1.Wait()
 }
