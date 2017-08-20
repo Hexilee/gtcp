@@ -1,6 +1,6 @@
 package gtcp
 
-// All Event-callback objects defined by user should implement Actor interface
+// Actor is interface that all Event-callback objects defined by user should implement it.
 type Actor interface {
 	TCPBox
 	OnConnect() error
@@ -10,12 +10,12 @@ type Actor interface {
 	OnClose() error
 }
 
-// All Event-callback struct defined by user is supported to embed ActorType
+// ActorType is a struct that all Event-callback struct defined by user is supported to embed it.
 type ActorType struct {
 	*TCPConn
 }
 
-// To embed pointer of TCPConn in actor
+// InstallTCPConn is a method to embed pointer of TCPConn in actor
 func (a *ActorType) InstallTCPConn(conn *TCPConn) {
 	a.TCPConn = conn
 }
