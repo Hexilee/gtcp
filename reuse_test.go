@@ -2,6 +2,7 @@ package gtcp
 
 import (
 	"testing"
+	"time"
 )
 
 func doAllTest(t *testing.T) {
@@ -13,14 +14,36 @@ func doAllTest(t *testing.T) {
 }
 
 func TestConnPool(t *testing.T) {
-	//OpenConnPool(30)
+	go func() {
+		select {
+		case <- time.After(1 * time.Second):
+			t.Error("There is no tcpconn in pool.conns")
+		case <- pool.GetConns():
+		}
+		select {
+		case <- time.After(1 * time.Second):
+			t.Error("There is no actor in pool.actors")
+		case <- pool.GetActors():
+		}
+		select {
+		case <- time.After(1 * time.Second):
+			t.Error("There is no tcpconn in pool.ctrls")
+		case <- pool.GetCtrls():
+		}
+		select {
+		case <- time.After(1 * time.Second):
+			t.Error("There is no tcpconn in ConnPool")
+		case <- GetConnPool():
+		}
+	}()
+	OpenPool(30)
 	doAllTest(t)
 	ReopenPool(100)
 	doAllTest(t)
+	OpenConnPool(1000)
+	doAllTest(t)
+	ReopenConnPool(2000)
+	for i := 0; i<=50;i++ {
+		doAllTest(t)
+	}
 }
-
-//func TestHighPerformance(t *testing.T) {
-//	for i:=1; i<100; i++ {
-//		TestConnPool(t)
-//	}
-//}

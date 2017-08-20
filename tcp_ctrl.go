@@ -25,12 +25,6 @@ type TCPCtrl struct {
 	Actor
 }
 
-//func (t *TCPCtrl) Clear() {
-//	t.mu.Lock()
-//	defer t.mu.Unlock()
-//	t.OnceOnClose = new(sync.Once)
-//}
-
 func (t *TCPCtrl) CloseOnce () {
 	defer SendCtrlToPool(t)
 	err := t.OnClose()
@@ -38,15 +32,6 @@ func (t *TCPCtrl) CloseOnce () {
 		err = t.OnError(err)
 	}
 }
-
-//func (t *TCPCtrl) Close() error {
-//	t.mu.RLock()
-//	defer t.mu.RUnlock()
-//	defer SendCtrlToPool(t)
-//	t.OnceOnClose.Do(t.OnClose)
-//	t.Actor.CloseOnce()
-//	return nil
-//}
 
 func (t *TCPCtrl) InstallActor(actor Actor) {
 	t.Close()

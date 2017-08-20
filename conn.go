@@ -87,6 +87,7 @@ type TCPConn struct {
 }
 
 func (t *TCPConn) Start() {
+	t.InstallCtx(context.Background())
 	go t.Scan()
 }
 
@@ -104,11 +105,12 @@ func (t *TCPConn) StartWithCtx(ctx context.Context) {
 //}
 
 func (t *TCPConn) CloseOnce() {
+	t.Close()
 	err := t.TCPConn.Close()
 	if err != nil {
 		t.error <- err
 	}
-	//SendConnToPool(t)
+	SendConnToPool(t)
 }
 
 func (t *TCPConn) ReInstallNetConn(conn *net.TCPConn) {

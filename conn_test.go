@@ -105,6 +105,8 @@ func TestTCPConnInterface(t *testing.T) {
 }
 
 func TestTCPConn(t *testing.T) {
+	OpenPool(10)
+	TestTCPConnInterface(t)
 	TCPChan := make(chan *TCPConn)
 
 	listener, err := NewTCPListener(Addr)
@@ -136,7 +138,13 @@ func TestTCPConn(t *testing.T) {
 
 	for _, testStr := range testChanData {
 		_, _ = client.Write([]byte(testStr))
-		resultBytes := <-server.GetDataChan()
+		//if client.IsDone() {
+		//	fmt.Println("client has down")
+		//}
+		//if server.IsDone() {
+		//	fmt.Println("server has down")
+		//}
+		resultBytes := <- server.GetDataChan()
 		assertEqual(t, string(resultBytes), AddHeader([]byte(testStr)), "TCP add header data err (client -> server)")
 	}
 

@@ -4,8 +4,6 @@ import (
 	"sync"
 	"net"
 	"sync/atomic"
-	"time"
-	"errors"
 )
 
 var (
@@ -77,18 +75,14 @@ func SendActorToPool(actor Actor) {
 
 func SendConnToPool(conn *TCPConn) {
 	if IsPoolOpen() || IsConnPoolOpen() {
-		//if !conn.IsDone() {
-		//	conn.Close()
-		//}
 		select {
-		case <- time.After(1*1000):
-			panic(errors.New("Cannot send unclosed TCPConn to pool"))
 		case <-conn.Context.Done():
 			select {
 			case pool.conns <- conn:
 			case connP <- conn:
 			default:
 			}
+		default:
 		}
 	}
 }
