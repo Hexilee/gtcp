@@ -43,9 +43,3 @@ func TestConnPool(t *testing.T) {
 	doAllTest(t)
 	wg.Wait()
 }
-
-func TestMultiWork(t *testing.T) {
-	for i := 0; i <= 50; i++ {
-		TestConnPool(t)
-	}
-}
