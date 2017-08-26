@@ -79,10 +79,10 @@ func GetTCPConn(conn *net.TCPConn) (tcpConn *TCPConn) {
 // A box for net.TCPConn
 // with data chan, info chan, error chan, ctx and cancel function.
 type TCPConn struct {
-	data  chan []byte
-	info  chan string
-	error chan error
-	mu    *sync.RWMutex
+	data    chan []byte
+	info    chan string
+	error   chan error
+	mu      *sync.RWMutex
 	*net.TCPConn
 	Context context.Context
 	cancel  context.CancelFunc
@@ -175,7 +175,7 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 	}
 	if length > 1048576 { //1024*1024=1048576
 		t.Close()
-		return 0, nil, errors.New(fmt.Sprintf("Read Error. Addr: %s; Err: too large data!", t.RemoteAddr().String()))
+		return 0, nil, fmt.Errorf(fmt.Sprintf("Read Error. Addr: %s; Err: too large data!", t.RemoteAddr().String()))
 	}
 	var lhead uint32
 	buf := bytes.NewReader(data)
@@ -184,7 +184,7 @@ func (t *TCPConn) split(data []byte, atEOF bool) (adv int, token []byte, err err
 	tail := length - headerLen
 	if lhead > 1048576 {
 		t.Close()
-		return 0, nil, errors.New(fmt.Sprintf("Read Error. Addr: %s; Err: too large data!", t.RemoteAddr().String()))
+		return 0, nil, fmt.Errorf(fmt.Sprintf("Read Error. Addr: %s; Err: too large data!", t.RemoteAddr().String()))
 	}
 	if uint32(tail) < lhead {
 		return 0, nil, nil
@@ -222,18 +222,14 @@ Circle:
 
 // Get data without four-bytes header
 func (t *TCPConn) ReadData() []byte {
-	select {
-	case data := <-t.data:
-		return data[headerLen:]
-	}
+	data := <-t.data
+	return data[headerLen:]
 }
 
 // Get string data
 func (t *TCPConn) ReadString() string {
-	select {
-	case data := <-t.data:
-		return string(data[headerLen:])
-	}
+	data := <-t.data
+	return string(data[headerLen:])
 }
 
 // Get data chan

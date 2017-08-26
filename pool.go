@@ -39,6 +39,8 @@ func GetActorFromPool() (actor Actor, ok bool) {
 		select {
 		case actor = <-pool.actors:
 			return actor, true
+		default:
+
 		}
 	}
 	return
